@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useReducer, useRef, useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   runJobSuitabilityAnalysis,
   runResumeOptimization,
@@ -41,15 +42,16 @@ import {
   HelpCircle,
   LogOut,
   ChevronUp,
+  LayoutDashboard,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
 import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
 import { Badge } from '../ui/badge';
-import { useUser, useFirestore, useAuth } from '@/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import type { UserProfile } from '@/lib/types';
+import { useUser, useFirestore, useAuth, useMemoFirebase } from '@/firebase';
+import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import type { UserProfile, JobApplication } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
@@ -58,6 +60,8 @@ import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 type State = {
   resumeText: string;
   jobDescriptionText: string;
+  jobTitle: string;
+  companyName: string;
   analysisResult: AnalyzeJobSuitabilityOutput | null;
   optimizedAnalysisResult: AnalyzeJobSuitabilityOutput | null;
   optimizedResume: string | null;
@@ -65,14 +69,15 @@ type State = {
   followUpEmail: string | null;
   interviewQuestions: string | null;
   skillsToAdd: string[];
-  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'interview' | 'downloading' | 'profile' | false;
+  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'interview' | 'downloading' | 'profile' | 'savingApp' | false;
   copied: 'resume' | 'coverLetter' | 'followUp' | 'interview' | false;
   profile: Partial<UserProfile>;
   isProfileOpen: boolean;
+  applicationId: string | null;
 };
 
 type Action =
-  | { type: 'SET_TEXT'; payload: { field: 'resumeText' | 'jobDescriptionText'; value: string } }
+  | { type: 'SET_TEXT'; payload: { field: 'resumeText' | 'jobDescriptionText' | 'jobTitle' | 'companyName'; value: string } }
   | { type: 'SET_LOADING'; payload: State['loading'] }
   | { type: 'SET_ANALYSIS_RESULT'; payload: AnalyzeJobSuitabilityOutput | null }
   | { type: 'SET_OPTIMIZED_RESUME'; payload: string | null }
@@ -87,11 +92,14 @@ type Action =
   | { type: 'SET_PROFILE'; payload: Partial<UserProfile> }
   | { type: 'UPDATE_PROFILE_FIELD'; payload: { field: keyof UserProfile; value: string } }
   | { type: 'TOGGLE_PROFILE' }
+  | { type: 'SET_APPLICATION_ID', payload: string | null }
   | { type: 'RESET' };
 
 const initialState: State = {
   resumeText: '',
   jobDescriptionText: '',
+  jobTitle: '',
+  companyName: '',
   analysisResult: null,
   optimizedAnalysisResult: null,
   optimizedResume: null,
@@ -103,6 +111,7 @@ const initialState: State = {
   copied: false,
   profile: {},
   isProfileOpen: true,
+  applicationId: null,
 };
 
 function reducer(state: State, action: Action): State {
@@ -141,13 +150,17 @@ function reducer(state: State, action: Action): State {
       return { ...state, profile: { ...state.profile, [action.payload.field]: action.payload.value } };
     case 'TOGGLE_PROFILE':
       return { ...state, isProfileOpen: !state.isProfileOpen };
+    case 'SET_APPLICATION_ID':
+      return { ...state, applicationId: action.payload };
     case 'RESET':
       return { 
         ...initialState, 
         profile: state.profile,
         isProfileOpen: state.isProfileOpen,
         resumeText: state.resumeText, 
-        jobDescriptionText: state.jobDescriptionText 
+        jobDescriptionText: state.jobDescriptionText,
+        jobTitle: state.jobTitle,
+        companyName: state.companyName,
       };
     default:
       return state;
@@ -491,6 +504,50 @@ export default function ResumePilotClient() {
     dispatch({ type: 'SET_LOADING', payload: false });
   }
 
+  const handleSaveApplication = async () => {
+    if (!user || !firestore) {
+        toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to save.' });
+        return;
+    }
+    if (!state.jobTitle || !state.companyName) {
+        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide a Job Title and Company Name.' });
+        return;
+    }
+
+    dispatch({ type: 'SET_LOADING', payload: 'savingApp' });
+
+    const applicationData: Omit<JobApplication, 'id'> = {
+        userId: user.uid,
+        jobTitle: state.jobTitle,
+        companyName: state.companyName,
+        applicationDate: serverTimestamp().toDate().toISOString(),
+        status: 'Applied',
+        resumeText: state.resumeText,
+        jobDescriptionText: state.jobDescriptionText,
+        optimizedResumeHtml: state.optimizedResume || '',
+        coverLetterHtml: state.coverLetter || '',
+    };
+
+    try {
+        const applicationsRef = collection(firestore, 'users', user.uid, 'applications');
+        const docRef = await addDoc(applicationsRef, applicationData);
+        dispatch({ type: 'SET_APPLICATION_ID', payload: docRef.id });
+        toast({
+            title: 'Application Saved!',
+            description: 'Your application has been saved to your dashboard.',
+        });
+    } catch (e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Save Failed',
+            description: e.message || 'Could not save application.',
+        });
+    }
+
+    dispatch({ type: 'SET_LOADING', payload: false });
+  };
+
+
   const isAnalyzeDisabled = !state.resumeText || !state.jobDescriptionText || !!state.loading;
 
   const renderContent = (
@@ -741,8 +798,13 @@ export default function ResumePilotClient() {
           <h1 className="text-2xl font-bold font-headline text-foreground">ResumePilot</h1>
         </div>
         {user && (
-            <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground hidden sm:inline">Welcome, {user.displayName || user.email}</span>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/dashboard">
+                        <LayoutDashboard className="w-4 h-4 mr-2" />
+                        Dashboard
+                    </Link>
+                </Button>
                 <Button variant="ghost" size="icon" onClick={handleLogout} title="Sign Out">
                     <LogOut className="w-5 h-5" />
                 </Button>
@@ -758,6 +820,38 @@ export default function ResumePilotClient() {
             {/* LEFT COLUMN */}
             <div className="flex flex-col gap-8">
                 {renderProfileCard()}
+                 <Card className="shadow-lg">
+                    <CardHeader>
+                        <CardTitle className="font-headline flex items-center gap-2">
+                        <Briefcase />
+                        Job & Company Info
+                        </CardTitle>
+                        <CardDescription>
+                        Enter the job title and company you are applying to.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                        <Label htmlFor="job-title">Job Title</Label>
+                        <Input 
+                            id="job-title" 
+                            placeholder="e.g. Software Engineer"
+                            value={state.jobTitle}
+                            onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'jobTitle', value: e.target.value }})}
+                        />
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="company-name">Company Name</Label>
+                        <Input 
+                            id="company-name"
+                            placeholder="e.g. Google"
+                            value={state.companyName}
+                            onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'companyName', value: e.target.value }})}
+                        />
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2">
@@ -889,6 +983,36 @@ export default function ResumePilotClient() {
                     {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter, 'follow-up-email')}
                 </TabsContent>
                 </Tabs>
+                {state.coverLetter && !state.applicationId && (
+                    <Card className="shadow-lg">
+                        <CardHeader>
+                            <CardTitle>Save Your Application</CardTitle>
+                            <CardDescription>Save this application to your dashboard to track its status.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button size="lg" className="w-full" onClick={handleSaveApplication} disabled={state.loading === 'savingApp'}>
+                                {state.loading === 'savingApp' ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
+                                Save Application to Dashboard
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+                 {state.applicationId && (
+                    <Card className="shadow-lg bg-green-500/10 border-green-500/50">
+                        <CardHeader className="text-center">
+                            <CardTitle className="text-green-300">Application Saved!</CardTitle>
+                            <CardDescription className="text-green-400/80">You can view and track this application on your dashboard.</CardDescription>
+                             <div className="pt-2">
+                                <Button asChild variant="outline">
+                                    <Link href="/dashboard">
+                                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                                        Go to Dashboard
+                                    </Link>
+                                </Button>
+                            </div>
+                        </CardHeader>
+                    </Card>
+                )}
             </div>
             </div>
         )}

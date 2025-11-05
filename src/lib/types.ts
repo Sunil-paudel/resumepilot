@@ -11,3 +11,16 @@ export type UserProfile = {
     linkedinUrl?: string;
     githubUrl?: string;
 };
+
+export type JobApplication = {
+    id: string;
+    userId: string;
+    jobTitle: string;
+    companyName: string;
+    status: 'Applied' | 'Interviewing' | 'Accepted' | 'Rejected';
+    applicationDate: string;
+    resumeText: string;
+    jobDescriptionText: string;
+    optimizedResumeHtml?: string;
+    coverLetterHtml?: string;
+};
