@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useFormStatus } from 'react-dom';
 import { ArrowRight, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -31,7 +31,7 @@ function SubmitButton() {
 }
 
 export default function ContactPage() {
-  const [state, formAction] = useFormState(handleInquiry, initialState);
+  const [state, formAction] = useActionState(handleInquiry, initialState);
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
 
