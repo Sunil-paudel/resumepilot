@@ -17,9 +17,12 @@ export default function PricingPage() {
             ResumePilot
           </h1>
         </Link>
-        <nav className="flex items-center gap-4">
+        <nav className="flex items-center gap-2">
           <Button variant="ghost" asChild>
             <Link href="/generator">Generator</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/contact">Contact</Link>
           </Button>
           <Button asChild>
             <Link href="/generator">

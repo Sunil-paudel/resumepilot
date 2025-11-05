@@ -30,9 +30,12 @@ export default function HomePage() {
             ResumePilot
           </h1>
         </Link>
-        <nav className="flex items-center gap-4">
+        <nav className="flex items-center gap-2">
           <Button variant="ghost" asChild>
             <Link href="/pricing">Pricing</Link>
+          </Button>
+           <Button variant="ghost" asChild>
+            <Link href="/contact">Contact</Link>
           </Button>
           <Button asChild>
             <Link href="/generator">

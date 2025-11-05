@@ -4,8 +4,19 @@ import './globals.css';
 import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
-  title: 'ResumePilot',
-  description: 'AI-powered resume optimization to land your dream job.',
+  title: {
+    default: 'ResumePilot | AI-Powered Job Application Assistant',
+    template: '%s | ResumePilot',
+  },
+  description: 'Land your dream job with ResumePilot. Get AI-powered resume optimization, tailored cover letters, and interview preparation.',
+  keywords: ['resume optimizer', 'AI resume writer', 'cover letter generator', 'job application', 'career coach'],
+  openGraph: {
+    title: 'ResumePilot | AI-Powered Job Application Assistant',
+    description: 'Land your dream job with ResumePilot. Get AI-powered resume optimization, tailored cover letters, and interview preparation.',
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://resumepilot.app', // Replace with your actual domain
+  },
 };
 
 export default function RootLayout({
