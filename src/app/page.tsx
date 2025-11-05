@@ -2,13 +2,15 @@
 import Link from 'next/link';
 import { Logo } from '@/components/app/icons';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle, Quote } from 'lucide-react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
 
 export default function HomePage() {
   const features = [
@@ -18,6 +20,27 @@ export default function HomePage() {
     'Personalized Cover Letters',
     'Interview Question Prep',
     'Application Tracking Dashboard',
+  ];
+
+  const testimonials = [
+    {
+      quote: "ResumePilot was a game-changer. The AI optimization landed me interviews at my dream companies within weeks. I went from getting no replies to multiple offers.",
+      name: "Alex Johnson",
+      title: "Software Engineer at TechCorp",
+      avatar: "AJ"
+    },
+    {
+      quote: "As a new grad, I was lost. This tool not only optimized my resume but also generated amazing interview questions that helped me feel confident and prepared.",
+      name: "Samantha Lee",
+      title: "UX/UI Designer at CreativeMinds",
+      avatar: "SL"
+    },
+    {
+      quote: "The application tracking dashboard is a lifesaver. Being able to manage all my applications and documents in one place made my job search so much less stressful.",
+      name: "Michael Chen",
+      title: "Data Analyst at FinAnalytics",
+      avatar: "MC"
+    }
   ];
 
   return (
@@ -139,6 +162,35 @@ export default function HomePage() {
                   <CheckCircle className="w-5 h-5 text-accent" />
                   <span className="text-lg text-muted-foreground">{feature}</span>
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials Section */}
+        <section className="bg-secondary/50 py-20 px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold font-headline text-foreground">Success Stories</h3>
+              <p className="text-lg text-muted-foreground mt-2">See what our users are saying about ResumePilot.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {testimonials.map((testimonial, index) => (
+                <Card key={index} className="flex flex-col">
+                  <CardContent className="pt-6 flex-grow flex flex-col">
+                    <Quote className="w-8 h-8 text-accent mb-4" />
+                    <p className="text-muted-foreground flex-grow">"{testimonial.quote}"</p>
+                    <div className="flex items-center gap-4 mt-6">
+                      <Avatar>
+                        <AvatarFallback>{testimonial.avatar}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-foreground">{testimonial.name}</p>
+                        <p className="text-sm text-muted-foreground">{testimonial.title}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
