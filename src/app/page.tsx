@@ -59,10 +59,10 @@ export default function HomePage() {
           </h1>
         </Link>
         <nav className="flex items-center gap-2">
-          <Button variant="ghost" asChild>
+          <Button variant="ghost" asChild className="hidden md:inline-flex">
             <Link href="/pricing">Pricing</Link>
           </Button>
-           <Button variant="ghost" asChild>
+           <Button variant="ghost" asChild className="hidden md:inline-flex">
             <Link href="/contact">Contact</Link>
           </Button>
           <Button asChild>

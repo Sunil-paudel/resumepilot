@@ -17,10 +17,10 @@ export default function PricingPage() {
           </h1>
         </Link>
         <nav className="flex items-center gap-2">
-          <Button variant="ghost" asChild>
+          <Button variant="ghost" asChild className="hidden md:inline-flex">
             <Link href="/generator">Generator</Link>
           </Button>
-          <Button variant="ghost" asChild>
+          <Button variant="ghost" asChild className="hidden md:inline-flex">
             <Link href="/contact">Contact</Link>
           </Button>
           <Button asChild>
