@@ -23,12 +23,12 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 md:px-8 py-4 flex items-center justify-between gap-3 border-b">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <Logo className="w-8 h-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline text-foreground">
             ResumePilot
           </h1>
-        </div>
+        </Link>
         <Button asChild>
           <Link href="/generator">
             Get Started <ArrowRight className="ml-2 h-4 w-4" />

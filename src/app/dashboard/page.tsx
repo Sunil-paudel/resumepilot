@@ -99,12 +99,12 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b px-4 py-4 md:px-8 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <Logo className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline text-foreground">
             My Job Applications
           </h1>
-        </div>
+        </Link>
         <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild>
                 <Link href="/generator" title="Back to Generator">
