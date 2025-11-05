@@ -23,4 +23,6 @@ export type JobApplication = {
     jobDescriptionText: string;
     optimizedResumeHtml?: string;
     coverLetterHtml?: string;
+    interviewQuestionsHtml?: string;
+    followUpEmailHtml?: string;
 };

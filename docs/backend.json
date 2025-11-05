@@ -113,6 +113,14 @@
         "coverLetterHtml": {
           "type": "string",
           "description": "The generated cover letter in HTML format."
+        },
+        "interviewQuestionsHtml": {
+          "type": "string",
+          "description": "The generated interview questions and answers in HTML format."
+        },
+        "followUpEmailHtml": {
+          "type": "string",
+          "description": "The generated follow-up email in HTML format."
         }
       },
       "required": [

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useReducer, useRef, useState, useEffect } from 'react';
+import React, { useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   runJobSuitabilityAnalysis,
@@ -8,6 +8,7 @@ import {
   runCoverLetterGeneration,
   runFollowUpEmailGeneration,
   runInterviewQuestionsGeneration,
+  runExtractJobDetails,
   generateDocx,
 } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +44,7 @@ import {
   LogOut,
   ChevronUp,
   LayoutDashboard,
+  Eye,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
@@ -69,7 +71,7 @@ type State = {
   followUpEmail: string | null;
   interviewQuestions: string | null;
   skillsToAdd: string[];
-  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'interview' | 'downloading' | 'profile' | 'savingApp' | false;
+  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'interview' | 'downloading' | 'profile' | 'savingApp' | 'extracting' | false;
   copied: 'resume' | 'coverLetter' | 'followUp' | 'interview' | false;
   profile: Partial<UserProfile>;
   isProfileOpen: boolean;
@@ -247,6 +249,24 @@ export default function ResumePilotClient() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const auth = useAuth();
+  
+  const handleJobDescriptionChange = useCallback((value: string) => {
+    dispatch({ type: 'SET_TEXT', payload: { field: 'jobDescriptionText', value }});
+    if (value.length > 250) { // Only run if JD is reasonably long
+        handleExtractDetails(value);
+    }
+  }, []);
+
+  const handleExtractDetails = async (jobDescription: string) => {
+      if (state.loading === 'extracting') return;
+      dispatch({ type: 'SET_LOADING', payload: 'extracting' });
+      const result = await runExtractJobDetails({ jobDescriptionText: jobDescription });
+      if(result.data) {
+          if (result.data.jobTitle) dispatch({ type: 'SET_TEXT', payload: { field: 'jobTitle', value: result.data.jobTitle }});
+          if (result.data.companyName) dispatch({ type: 'SET_TEXT', payload: { field: 'companyName', value: result.data.companyName }});
+      }
+      dispatch({ type: 'SET_LOADING', payload: false });
+  }
 
   useEffect(() => {
     if (user && firestore) {
@@ -526,6 +546,8 @@ export default function ResumePilotClient() {
         jobDescriptionText: state.jobDescriptionText,
         optimizedResumeHtml: state.optimizedResume || '',
         coverLetterHtml: state.coverLetter || '',
+        interviewQuestionsHtml: state.interviewQuestions || '',
+        followUpEmailHtml: state.followUpEmail || '',
     };
 
     try {
@@ -827,7 +849,7 @@ export default function ResumePilotClient() {
                         Job & Company Info
                         </CardTitle>
                         <CardDescription>
-                        Enter the job title and company you are applying to.
+                        Enter the job title and company you are applying to. The AI will try to extract this from the job description for you.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -884,15 +906,21 @@ export default function ResumePilotClient() {
                     Paste the job description you're applying for.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative">
                     <Label htmlFor="jd-text" className="sr-only">Job Description Text</Label>
                     <Textarea
                     id="jd-text"
                     placeholder="Paste job description here..."
                     value={state.jobDescriptionText}
-                    onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'jobDescriptionText', value: e.target.value }})}
+                    onChange={(e) => handleJobDescriptionChange(e.target.value)}
                     className="h-48"
                     />
+                    {state.loading === 'extracting' && (
+                        <div className="absolute bottom-2 right-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="w-3 h-3 animate-spin"/>
+                            <span>Extracting...</span>
+                        </div>
+                    )}
                 </CardContent>
                 </Card>
                 

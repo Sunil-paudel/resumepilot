@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useCollection, useUser, useFirestore, useAuth } from '@/firebase';
-import { collection, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 import { Logo } from '@/components/app/icons';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Home, Loader2 } from 'lucide-react';
+import { LogOut, Home, Loader2, Eye } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import type { JobApplication } from '@/lib/types';
 import { format } from 'date-fns';
@@ -30,6 +30,7 @@ import { useMemoFirebase } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { Card, CardContent } from '@/components/ui/card';
 
 const statusColors: { [key: string]: string } = {
   Applied: 'bg-blue-500/20 text-blue-300 border-blue-500/50',
@@ -127,6 +128,7 @@ export default function DashboardPage() {
                     <TableHead>Company</TableHead>
                     <TableHead>Date Applied</TableHead>
                     <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -156,6 +158,14 @@ export default function DashboardPage() {
                             </SelectContent>
                         </Select>
                         </TableCell>
+                         <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/dashboard/application/${app.id}`}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View/Edit
+                            </Link>
+                          </Button>
+                        </TableCell>
                     </TableRow>
                     ))}
                 </TableBody>
@@ -179,5 +189,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-import { Card, CardContent } from '@/components/ui/card';

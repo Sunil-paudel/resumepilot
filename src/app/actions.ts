@@ -5,6 +5,7 @@ import { generateCoverLetter, GenerateCoverLetterInput } from '@/ai/flows/genera
 import { generateFollowUpEmail, GenerateFollowUpEmailInput } from '@/ai/flows/generate-follow-up-email';
 import { optimizeResumeForJob, OptimizeResumeForJobInput } from '@/ai/flows/optimize-resume-for-job';
 import { generateInterviewQuestions, GenerateInterviewQuestionsInput } from '@/ai/flows/generate-interview-questions';
+import { extractJobDetails, ExtractJobDetailsInput } from '@/ai/flows/extract-job-details';
 
 export async function runJobSuitabilityAnalysis(input: AnalyzeJobSuitabilityInput) {
   try {
@@ -55,6 +56,17 @@ export async function runInterviewQuestionsGeneration(input: GenerateInterviewQu
     return { error: 'Failed to generate interview questions.' };
   }
 }
+
+export async function runExtractJobDetails(input: ExtractJobDetailsInput) {
+  try {
+    const result = await extractJobDetails(input);
+    return { data: result };
+  } catch (error) {
+    console.error(error);
+    return { error: 'Failed to extract job details.' };
+  }
+}
+
 
 export async function generateDocx(htmlContent: string) {
     try {
