@@ -3,18 +3,13 @@
  * @description This ruleset enforces a strict user-ownership model for all data.
  *
  * Data Structure:
- * All data is nested under /users/{userId}, with subcollections for resumes, job descriptions,
- * resume analyses, generated resumes, cover letters, and follow-up emails.
+ * - /users/{userId}: Stores public profile information for a user.
+ * - /users/{userId}/applications/{applicationId}: Stores job application data owned by the user.
  *
  * Key Security Decisions:
- * - Users can only access their own data. Listing other user's documents is disallowed.
- * - User profiles can only be created by the user themselves, and the userId in the document
- *   must match the authenticated user's ID.
- * - All subcollections inherit the ownership of the parent /users/{userId} document.
- *
- * Denormalization for Authorization:
- * The `userId` is present in all subcollection documents to avoid `get()` calls and enforce
- * ownership.
+ * - Users can only read, create, update, or delete their own data.
+ * - Listing documents in the top-level `/users` collection is disallowed.
+ * - All subcollections (like `applications`) inherit the ownership model of the parent `/users/{userId}` document.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -23,177 +18,51 @@ service cloud.firestore {
     /**
      * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' creates their profile. request.auth.uid == 'user123' and request.resource.data.id == 'user123'
-     * @allow (get) User with ID 'user123' reads their profile. request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' updates their profile. request.auth.uid == 'user123' and resource.data.id == 'user123'
-     * @allow (delete) User with ID 'user123' deletes their profile. request.auth.uid == 'user123' and resource.data.id == 'user123'
-     * @deny (create) User with ID 'user123' tries to create profile for 'user456'. request.auth.uid == 'user123' and request.resource.data.id == 'user456'
-     * @deny (get) User with ID 'user123' tries to read profile for 'user456'. request.auth.uid == 'user123'
-     * @deny (update) User with ID 'user123' tries to update profile for 'user456'. request.auth.uid == 'user123' and resource.data.id == 'user456'
-     * @deny (delete) User with ID 'user123' tries to delete profile for 'user456'. request.auth.uid == 'user123' and resource.data.id == 'user456'
-     * @principle Enforces document ownership for reads and writes, validates user ID on create and update.
+     * @allow (get) A signed-in user can read their own profile.
+     * @allow (create) A user can create their own profile, ensuring the document ID matches their auth UID.
+     * @allow (update, delete) A user can update or delete their own profile.
+     * @deny (list) Listing all user profiles is disallowed for security.
      */
     match /users/{userId} {
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
 
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to resume documents.
-     * @path /users/{userId}/resumes/{resumeId}
-     * @allow (create) User with ID 'user123' creates a resume. request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' reads their resume. request.auth.uid == 'user123'
-     * @allow (list) User with ID 'user123' lists their resumes. request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' updates their resume. request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' deletes their resume. request.auth.uid == 'user123'
-     * @deny (create) User with ID 'user123' tries to create a resume for 'user456'. request.auth.uid == 'user123'
-     * @deny (get) User with ID 'user123' tries to read resume for 'user456'. request.auth.uid == 'user123'
-     * @deny (update) User with ID 'user123' tries to update resume for 'user456'. request.auth.uid == 'user123'
-     * @deny (delete) User with ID 'user123' tries to delete resume for 'user456'. request.auth.uid == 'user123'
-     * @principle Enforces document ownership for reads and writes.
+     * @description Controls access to a user's job application documents.
+     * @path /users/{userId}/applications/{applicationId}
+     * @allow (get, list, create, update, delete) A signed-in user can perform all operations on their own applications.
+     * @deny Access is denied if the user is not the owner of the parent `users` document.
+     * @principle Enforces strict data ownership for all job application records.
      */
-    match /users/{userId}/resumes/{resumeId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
+    match /users/{userId}/applications/{applicationId} {
+        allow read, write: if isSignedIn() && isOwner(userId);
+    }
 
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+    // Helper Functions
+
+    /**
+     * @description Checks if the request is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     /**
-     * @description Controls access to job description documents.
-     * @path /users/{userId}/jobDescriptions/{jobDescriptionId}
-     * @allow (create) User with ID 'user123' creates a job description. request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' reads their job description. request.auth.uid == 'user123'
-     * @allow (list) User with ID 'user123' lists their job descriptions. request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' updates their job description. request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' deletes their job description. request.auth.uid == 'user123'
-     * @deny (create) User with ID 'user123' tries to create a job description for 'user456'. request.auth.uid == 'user123'
-     * @deny (get) User with ID 'user123' tries to read job description for 'user456'. request.auth.uid == 'user123'
-     * @deny (update) User with ID 'user123' tries to update job description for 'user456'. request.auth.uid == 'user123'
-     * @deny (delete) User with ID 'user123' tries to delete job description for 'user456'. request.auth.uid == 'user123'
-     * @principle Enforces document ownership for reads and writes.
+     * @description Checks if the authenticated user's UID matches the requested document's owner ID.
      */
-    match /users/{userId}/jobDescriptions/{jobDescriptionId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
     /**
-     * @description Controls access to resume analysis documents.
-     * @path /users/{userId}/resumeAnalyses/{resumeAnalysisId}
-     * @allow (create) User with ID 'user123' creates a resume analysis. request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' reads their resume analysis. request.auth.uid == 'user123'
-     * @allow (list) User with ID 'user123' lists their resume analyses. request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' updates their resume analysis. request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' deletes their resume analysis. request.auth.uid == 'user123'
-     * @deny (create) User with ID 'user123' tries to create a resume analysis for 'user456'. request.auth.uid == 'user123'
-     * @deny (get) User with ID 'user123' tries to read resume analysis for 'user456'. request.auth.uid == 'user123'
-     * @deny (update) User with ID 'user123' tries to update resume analysis for 'user456'. request.auth.uid == 'user123'
-     * @deny (delete) User with ID 'user123' tries to delete resume analysis for 'user456'. request.auth.uid == 'user123'
-     * @principle Enforces document ownership for reads and writes.
+     * @description Checks if the user is the owner of an existing document.
      */
-    match /users/{userId}/resumeAnalyses/{resumeAnalysisId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+    function isExistingOwner(userId) {
+      return isSignedIn() && isOwner(userId) && resource != null;
     }
-
-    /**
-     * @description Controls access to generated resume documents.
-     * @path /users/{userId}/generatedResumes/{generatedResumeId}
-     * @allow (create) User with ID 'user123' creates a generated resume. request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' reads their generated resume. request.auth.uid == 'user123'
-     * @allow (list) User with ID 'user123' lists their generated resumes. request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' updates their generated resume. request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' deletes their generated resume. request.auth.uid == 'user123'
-     * @deny (create) User with ID 'user123' tries to create a generated resume for 'user456'. request.auth.uid == 'user123'
-     * @deny (get) User with ID 'user123' tries to read generated resume for 'user456'. request.auth.uid == 'user123'
-     * @deny (update) User with ID 'user123' tries to update generated resume for 'user456'. request.auth.uid == 'user123'
-     * @deny (delete) User with ID 'user123' tries to delete generated resume for 'user456'. request.auth.uid == 'user123'
-     * @principle Enforces document ownership for reads and writes.
-     */
-    match /users/{userId}/generatedResumes/{generatedResumeId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-    /**
-     * @description Controls access to cover letter documents.
-     * @path /users/{userId}/coverLetters/{coverLetterId}
-     * @allow (create) User with ID 'user123' creates a cover letter. request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' reads their cover letter. request.auth.uid == 'user123'
-     * @allow (list) User with ID 'user123' lists their cover letters. request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' updates their cover letter. request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' deletes their cover letter. request.auth.uid == 'user123'
-     * @deny (create) User with ID 'user123' tries to create a cover letter for 'user456'. request.auth.uid == 'user123'
-     * @deny (get) User with ID 'user123' tries to read cover letter for 'user456'. request.auth.uid == 'user123'
-     * @deny (update) User with ID 'user123' tries to update cover letter for 'user456'. request.auth.uid == 'user123'
-     * @deny (delete) User with ID 'user123' tries to delete cover letter for 'user456'. request.auth.uid == 'user123'
-     * @principle Enforces document ownership for reads and writes.
-     */
-    match /users/{userId}/coverLetters/{coverLetterId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-    /**
-     * @description Controls access to follow-up email documents.
-     * @path /users/{userId}/followUpEmails/{followUpEmailId}
-     * @allow (create) User with ID 'user123' creates a follow-up email. request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' reads their follow-up email. request.auth.uid == 'user123'
-     * @allow (list) User with ID 'user123' lists their follow-up emails. request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' updates their follow-up email. request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' deletes their follow-up email. request.auth.uid == 'user123'
-     * @deny (create) User with ID 'user123' tries to create a follow-up email for 'user456'. request.auth.uid == 'user123'
-     * @deny (get) User with ID 'user123' tries to read follow-up email for 'user456'. request.auth.uid == 'user123'
-     * @deny (update) User with ID 'user123' tries to update follow-up email for 'user456'. request.auth.uid == 'user123'
-     * @deny (delete) User with ID 'user123' tries to delete follow-up email for 'user456'. request.auth.uid == 'user123'
-     * @principle Enforces document ownership for reads and writes.
-     */
-    match /users/{userId}/followUpEmails/{followUpEmailId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-  }
-
-  // Helper function to determine if the user is signed in
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  // Helper function to determine if the user is the owner of the document
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  // Helper function to determine if the user is the owner of an existing document
-  function isExistingOwner(userId) {
-    return isSignedIn() && isOwner(userId) && resource != null;
   }
 }
