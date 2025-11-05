@@ -58,14 +58,16 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   The output should be a well-structured HTML document. Use semantic HTML tags like <h2> for sections, <ul> and <li> for lists, etc. Do not include <html>, <head>, or <body> tags.
 
   {{#if profile}}
-  Start the resume with a header containing the user's contact information. Include their name, phone, email, LinkedIn, and GitHub profile URLs if provided. Format it professionally.
-  
-  User Profile Information:
-  - Name: {{profile.firstName}} {{profile.lastName}}
-  - Email: {{profile.email}}
-  - Phone: {{profile.phone}}
-  - LinkedIn: {{profile.linkedinUrl}}
-  - GitHub: {{profile.githubUrl}}
+  Start the resume with a header containing the user's contact information. Format it professionally.
+  - Include the user's full name: {{profile.firstName}} {{profile.lastName}}
+  - Include their phone number: {{profile.phone}}
+  - Include their email address: {{profile.email}}
+  {{#if profile.linkedinUrl}}
+  - Include a hyperlink with the text "LinkedIn" that points to {{profile.linkedinUrl}}. Example: <a href="{{profile.linkedinUrl}}">LinkedIn</a>
+  {{/if}}
+  {{#if profile.githubUrl}}
+  - Include a hyperlink with the text "GitHub" that points to {{profile.githubUrl}}. Example: <a href="{{profile.githubUrl}}">GitHub</a>
+  {{/if}}
   {{/if}}
 
   Resume:
