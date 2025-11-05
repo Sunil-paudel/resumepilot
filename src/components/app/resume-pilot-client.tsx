@@ -68,7 +68,7 @@ import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp, updateDoc } f
 import type { UserProfile, JobApplication } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { Switch } from '@/components/ui/switch';
 
 
@@ -333,23 +333,28 @@ export default function ResumePilotClient() {
 
   const handleLogin = async () => {
     if (!auth) return;
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-        console.log('Sign-in popup closed by user.');
-        return;
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+        // Fallback to redirect method if popup is blocked
+        toast({
+          title: "Sign-in popup blocked",
+          description: "Your browser blocked the popup. Redirecting to sign in page...",
+        });
+        signInWithRedirect(auth, provider);
+      } else {
+        console.error("Error during sign-in:", error);
+        toast({
+          variant: "destructive",
+          title: "Sign in failed",
+          description: error.message || "Could not sign in with Google. Please try again.",
+        });
       }
-      console.error("Error during sign-in:", error);
-      toast({
-        variant: "destructive",
-        title: "Sign in failed",
-        description: "Could not sign in with Google. Please try again.",
-      });
     }
   };
 
@@ -1201,5 +1206,7 @@ export default function ResumePilotClient() {
     </div>
   );
 }
+
+    
 
     
