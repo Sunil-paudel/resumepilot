@@ -13,6 +13,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { UserProfile } from '@/lib/types';
+
 
 const OptimizeResumeForJobInputSchema = z.object({
   resumeText: z
@@ -20,6 +22,14 @@ const OptimizeResumeForJobInputSchema = z.object({
     .describe('The text content of the resume (PDF, DOC, or HTML).'),
   jobDescriptionText: z.string().describe('The text content of the job description.'),
   additionalSkills: z.array(z.string()).optional().describe('A list of additional skills or keywords to incorporate into the resume.'),
+  profile: z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    linkedinUrl: z.string().optional(),
+    githubUrl: z.string().optional(),
+  }).optional().describe('User\'s profile information to be included in the resume header.'),
 });
 export type OptimizeResumeForJobInput = z.infer<typeof OptimizeResumeForJobInputSchema>;
 
@@ -46,6 +56,17 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   Focus on incorporating relevant keywords from the job description and the provided additional skills list into the resume while maintaining a professional and readable tone.
   
   The output should be a well-structured HTML document. Use semantic HTML tags like <h2> for sections, <ul> and <li> for lists, etc. Do not include <html>, <head>, or <body> tags.
+
+  {{#if profile}}
+  Start the resume with a header containing the user's contact information. Include their name, phone, email, LinkedIn, and GitHub profile URLs if provided. Format it professionally.
+  
+  User Profile Information:
+  - Name: {{profile.firstName}} {{profile.lastName}}
+  - Email: {{profile.email}}
+  - Phone: {{profile.phone}}
+  - LinkedIn: {{profile.linkedinUrl}}
+  - GitHub: {{profile.githubUrl}}
+  {{/if}}
 
   Resume:
   {{resumeText}}

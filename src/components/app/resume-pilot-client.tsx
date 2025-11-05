@@ -434,6 +434,7 @@ export default function ResumePilotClient() {
         resumeText: state.resumeText, 
         jobDescriptionText: state.jobDescriptionText,
         additionalSkills: state.skillsToAdd,
+        profile: state.profile,
     });
 
     if (optResult.error || !optResult.data) {
