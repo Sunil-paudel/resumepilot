@@ -26,20 +26,26 @@ export default function HomePage() {
     {
       quote: "ResumePilot was a game-changer. The AI optimization landed me interviews at my dream companies within weeks. I went from getting no replies to multiple offers.",
       name: "Alex Johnson",
-      title: "Software Engineer at TechCorp",
+      title: "Software Engineer at Innovate Inc.",
       avatar: "AJ"
     },
     {
-      quote: "As a new grad, I was lost. This tool not only optimized my resume but also generated amazing interview questions that helped me feel confident and prepared.",
-      name: "Samantha Lee",
-      title: "UX/UI Designer at CreativeMinds",
-      avatar: "SL"
+      quote: "As an international student, adapting my resume was tough. This tool helped me get a great internship. The interview prep was incredibly helpful!",
+      name: "Sumin Kim",
+      title: "Marketing Intern at CreativeMinds",
+      avatar: "SK"
     },
     {
       quote: "The application tracking dashboard is a lifesaver. Being able to manage all my applications and documents in one place made my job search so much less stressful.",
-      name: "Michael Chen",
+      name: "Wei Zhang",
       title: "Data Analyst at FinAnalytics",
-      avatar: "MC"
+      avatar: "WZ"
+    },
+     {
+      quote: "I landed a project manager role thanks to the optimized resume and cover letter. It really helped highlight my skills in the right way.",
+      name: "Priya Gurung",
+      title: "Project Manager at BuildIt",
+      avatar: "PG"
     }
   ];
 
@@ -169,12 +175,12 @@ export default function HomePage() {
 
         {/* Testimonials Section */}
         <section className="bg-secondary/50 py-20 px-4">
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h3 className="text-3xl font-bold font-headline text-foreground">Success Stories</h3>
               <p className="text-lg text-muted-foreground mt-2">See what our users are saying about ResumePilot.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {testimonials.map((testimonial, index) => (
                 <Card key={index} className="flex flex-col">
                   <CardContent className="pt-6 flex-grow flex flex-col">
