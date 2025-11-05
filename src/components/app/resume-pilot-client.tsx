@@ -333,24 +333,8 @@ export default function ResumePilotClient() {
     provider.setCustomParameters({
       prompt: 'select_account'
     });
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-        toast({
-          title: "Sign-in popup blocked",
-          description: "Your browser blocked the popup. Redirecting to sign in page...",
-        });
-        signInWithRedirect(auth, provider);
-      } else {
-        console.error("Error during sign-in:", error);
-        toast({
-          variant: "destructive",
-          title: "Sign in failed",
-          description: error.message || "Could not sign in with Google. Please try again.",
-        });
-      }
-    }
+    // Use redirect method which is more robust for production environments
+    await signInWithRedirect(auth, provider);
   };
 
   const handleLogout = async () => {
@@ -910,22 +894,22 @@ export default function ResumePilotClient() {
         open={state.showOutOfCreditsDialog}
         onOpenChange={(open) => dispatch({ type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: open })}
     >
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Out of Free Optimizations</AlertDialogTitle>
-                <AlertDialogDescription>
-                    You've used all your free credits. Please upgrade to a paid plan to continue optimizing your job applications.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <Button variant="outline" onClick={() => dispatch({ type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: false })}>
-                    Cancel
-                </Button>
-                <AlertDialogAction asChild>
-                    <Link href="/pricing">View Pricing</Link>
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Out of Free Optimizations</AlertDialogTitle>
+          <AlertDialogDescription>
+              You've used all your free credits. Please upgrade to a paid plan to continue optimizing your job applications.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <Button variant="outline" onClick={() => dispatch({ type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: false })}>
+                Cancel
+            </Button>
+            <AlertDialogAction asChild>
+                <Link href="/pricing">View Pricing</Link>
+            </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
     </AlertDialog>
 );
 
