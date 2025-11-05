@@ -4,13 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { ArrowRight, Send, Loader2 } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/app/icons';
+import { MarketingHeader } from '@/components/app/marketing-header';
 import { handleInquiry, type InquiryState } from './actions';
 import { useToast } from '@/hooks/use-toast';
 
@@ -57,24 +57,7 @@ export default function ContactPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="px-4 md:px-8 py-4 flex items-center justify-between gap-3 border-b">
-        <Link href="/" className="flex items-center gap-3">
-          <Logo className="w-8 h-8 text-primary" />
-          <h1 className="text-2xl font-bold font-headline text-foreground">
-            ResumePilot
-          </h1>
-        </Link>
-        <nav className="flex items-center gap-2">
-          <Button variant="ghost" asChild className="hidden md:inline-flex">
-            <Link href="/pricing">Pricing</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/generator">
-              Get Started <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </nav>
-      </header>
+      <MarketingHeader />
 
       <main className="flex-grow py-20 md:py-32 px-4">
         <div className="max-w-2xl mx-auto">

@@ -4,32 +4,12 @@ import Link from 'next/link';
 import { CheckCircle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Logo } from '@/components/app/icons';
+import { MarketingHeader } from '@/components/app/marketing-header';
 
 export default function PricingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="px-4 md:px-8 py-4 flex items-center justify-between gap-3 border-b">
-        <Link href="/" className="flex items-center gap-3">
-          <Logo className="w-8 h-8 text-primary" />
-          <h1 className="text-2xl font-bold font-headline text-foreground">
-            ResumePilot
-          </h1>
-        </Link>
-        <nav className="flex items-center gap-2">
-          <Button variant="ghost" asChild className="hidden md:inline-flex">
-            <Link href="/generator">Generator</Link>
-          </Button>
-          <Button variant="ghost" asChild className="hidden md:inline-flex">
-            <Link href="/contact">Contact</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/generator">
-              Get Started <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </nav>
-      </header>
+      <MarketingHeader />
 
       <main className="flex-grow py-20 md:py-32 px-4">
         <div className="max-w-5xl mx-auto">
