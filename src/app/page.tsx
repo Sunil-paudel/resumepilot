@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { AppFooter } from '@/components/app/footer';
 
 export default function HomePage() {
   const features = [
@@ -145,8 +144,6 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-
-      <AppFooter />
     </div>
   );
 }

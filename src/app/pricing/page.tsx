@@ -5,7 +5,6 @@ import { CheckCircle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Logo } from '@/components/app/icons';
-import { AppFooter } from '@/components/app/footer';
 
 export default function PricingPage() {
   return (
@@ -131,7 +130,6 @@ export default function PricingPage() {
           </div>
         </div>
       </main>
-       <AppFooter />
     </div>
   );
 }
