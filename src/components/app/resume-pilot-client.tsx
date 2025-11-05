@@ -842,38 +842,6 @@ export default function ResumePilotClient() {
             {/* LEFT COLUMN */}
             <div className="flex flex-col gap-8">
                 {renderProfileCard()}
-                 <Card className="shadow-lg">
-                    <CardHeader>
-                        <CardTitle className="font-headline flex items-center gap-2">
-                        <Briefcase />
-                        Job & Company Info
-                        </CardTitle>
-                        <CardDescription>
-                        Enter the job title and company you are applying to. The AI will try to extract this from the job description for you.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                        <Label htmlFor="job-title">Job Title</Label>
-                        <Input 
-                            id="job-title" 
-                            placeholder="e.g. Software Engineer"
-                            value={state.jobTitle}
-                            onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'jobTitle', value: e.target.value }})}
-                        />
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="company-name">Company Name</Label>
-                        <Input 
-                            id="company-name"
-                            placeholder="e.g. Google"
-                            value={state.companyName}
-                            onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'companyName', value: e.target.value }})}
-                        />
-                        </div>
-                    </CardContent>
-                </Card>
-
                 <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2">
@@ -990,6 +958,41 @@ export default function ResumePilotClient() {
                     )}
                 </CardContent>
                 </Card>
+
+                {state.analysisResult && (
+                    <Card className="shadow-lg">
+                        <CardHeader>
+                            <CardTitle className="font-headline flex items-center gap-2">
+                            <Briefcase />
+                            Job & Company Info
+                            </CardTitle>
+                            <CardDescription>
+                            Enter the job title and company you are applying to. The AI will try to extract this from the job description for you.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                            <Label htmlFor="job-title">Job Title</Label>
+                            <Input 
+                                id="job-title" 
+                                placeholder="e.g. Software Engineer"
+                                value={state.jobTitle}
+                                onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'jobTitle', value: e.target.value }})}
+                            />
+                            </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="company-name">Company Name</Label>
+                            <Input 
+                                id="company-name"
+                                placeholder="e.g. Google"
+                                value={state.companyName}
+                                onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'companyName', value: e.target.value }})}
+                            />
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
 
                 <Tabs defaultValue="resume" className="w-full">
                 <TabsList className="grid w-full grid-cols-4">
