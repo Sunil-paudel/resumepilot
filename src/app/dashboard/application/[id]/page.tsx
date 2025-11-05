@@ -168,7 +168,7 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
                 <span className="ml-2">Save Changes</span>
             </Button>
             <Button variant="ghost" size="icon" asChild>
-                <Link href="/" title="Home">
+                <Link href="/generator" title="Generator">
                     <Home className="h-5 w-5" />
                 </Link>
             </Button>

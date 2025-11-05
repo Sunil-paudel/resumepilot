@@ -107,7 +107,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild>
-                <Link href="/" title="Back to Generator">
+                <Link href="/generator" title="Back to Generator">
                     <Home className="h-5 w-5" />
                 </Link>
             </Button>
@@ -177,7 +177,7 @@ export default function DashboardPage() {
                     <h2 className="text-2xl font-bold font-headline">No Applications Yet</h2>
                     <p className="text-muted-foreground mt-2 mb-4">Start by creating your first optimized resume and saving the application.</p>
                     <Button asChild>
-                        <Link href="/">
+                        <Link href="/generator">
                             <Home className="mr-2 h-4 w-4" />
                             Go to Generator
                         </Link>
