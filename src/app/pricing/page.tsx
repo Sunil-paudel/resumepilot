@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { CheckCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle, ArrowRight, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { MarketingHeader } from '@/components/app/marketing-header';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function PricingPage() {
   return (
@@ -21,6 +22,18 @@ export default function PricingPage() {
               Simple, transparent pricing. Pick the plan that works for you.
             </p>
           </div>
+
+          <Alert className="mb-12 bg-blue-500/10 border-blue-500/30 text-blue-200">
+            <Info className="h-4 w-4 !text-blue-300" />
+            <AlertTitle className="font-bold text-blue-200">Under Development</AlertTitle>
+            <AlertDescription>
+              Payment processing is currently being implemented. For now, please enjoy your free trial credits. For beta access to premium features, please{' '}
+              <Link href="/contact" className="underline hover:text-blue-100">
+                contact us
+              </Link>
+              .
+            </AlertDescription>
+          </Alert>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
             {/* Pay-as-you-go Plan */}
