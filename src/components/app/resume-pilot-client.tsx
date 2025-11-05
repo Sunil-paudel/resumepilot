@@ -54,17 +54,14 @@ import {
   LogOut,
   ChevronUp,
   LayoutDashboard,
-  Eye,
   CreditCard,
-  Pencil,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
-import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
 import { Badge } from '../ui/badge';
 import { useUser, useFirestore, useAuth } from '@/firebase';
-import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, addDoc, collection, updateDoc } from 'firebase/firestore';
 import type { UserProfile, JobApplication } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -271,7 +268,8 @@ export default function ResumePilotClient() {
 
   const handleJobDescriptionChange = useCallback((value: string) => {
     dispatch({ type: 'SET_TEXT', payload: { field: 'jobDescriptionText', value }});
-    if (value.length > 250) { // Only run if JD is reasonably long
+    // A basic check to avoid running on every keystroke for short inputs
+    if (value.length > 250) { 
         handleExtractDetails(value);
     }
   }, []);
@@ -296,7 +294,6 @@ export default function ResumePilotClient() {
           const docSnap = await getDoc(profileRef);
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
-             // Ensure developers always have 'infinite' credits
              if (user.email && developerEmails.includes(user.email) && data.credits !== 9999) {
                 await updateDoc(profileRef, { credits: 9999 });
                 dispatch({ type: 'SET_PROFILE', payload: { ...data, credits: 9999 } });
@@ -304,14 +301,13 @@ export default function ResumePilotClient() {
                 dispatch({ type: 'SET_PROFILE', payload: data });
             }
           } else {
-            // New user, create profile with credits
             const isDeveloper = user.email && developerEmails.includes(user.email);
             const newUserProfile: UserProfile = {
                 id: user.uid,
                 firstName: user.displayName?.split(' ')[0] || '',
                 lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
                 email: user.email || '',
-                credits: isDeveloper ? 9999 : 2, // Infinite for devs, 2 for others
+                credits: isDeveloper ? 9999 : 2,
             };
             setDoc(profileRef, newUserProfile).catch(async (serverError) => {
               const permissionError = new FirestorePermissionError({
@@ -341,7 +337,6 @@ export default function ResumePilotClient() {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-        // Fallback to redirect method if popup is blocked
         toast({
           title: "Sign-in popup blocked",
           description: "Your browser blocked the popup. Redirecting to sign in page...",
@@ -455,7 +450,7 @@ export default function ResumePilotClient() {
   
   const handleOpenInNewTab = (content: string | null) => {
     if (!content) return;
-    const blob = new Blob([`<html><head><title>Document</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tailwindcss/typography@0.5.x/dist/typography.min.css" /><style>body { font-family: sans-serif; } h1,h2,h3 { font-weight: bold; } ul { list-style-type: disc; margin-left: 20px; }</style></head><body class="prose dark:prose-invert max-w-4xl mx-auto p-8">${content}</body></html>`], { type: 'text/html' });
+    const blob = new Blob([`<html><head><title>Document</title><style>body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; } h1,h2,h3 { font-weight: bold; } ul { list-style-type: disc; margin-left: 20px; }</style></head><body>${content}</body></html>`], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
   };
@@ -474,7 +469,6 @@ export default function ResumePilotClient() {
       return;
     }
 
-    // Credit check
     const currentCredits = state.profile.credits ?? 0;
     if (currentCredits <= 0) {
         dispatch({ type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: true });
@@ -484,7 +478,6 @@ export default function ResumePilotClient() {
     dispatch({ type: 'RESET' });
     dispatch({ type: 'SET_LOADING', payload: 'analysis' });
 
-    // Decrement credits in Firestore only if they are not a developer
     const developerEmails = ['paudelsunil16@gmail.com', 'paudelsgroup@gmail.com'];
     const isDeveloper = user.email && developerEmails.includes(user.email);
     
@@ -740,17 +733,17 @@ export default function ResumePilotClient() {
 
     if (!dependency) {
       return (
-        <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
+        <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary/30 rounded-lg p-8 text-center">
           <Icon className="w-12 h-12 text-muted-foreground" />
-          <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
+          <p className="text-muted-foreground">Your {title.toLowerCase()} will appear here once the previous steps are complete.</p>
         </div>
       );
     }
     
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
+      <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary/30 rounded-lg p-8 text-center">
         <Icon className="w-12 h-12 text-muted-foreground" />
-        <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
+        <p className="text-muted-foreground">Ready to generate your {title.toLowerCase()}?</p>
         <Button onClick={handleGenerate} disabled={!!state.loading}>
           <Sparkles className="w-4 h-4 mr-2" />
           {generateButtonText}
@@ -947,19 +940,19 @@ export default function ResumePilotClient() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="px-4 md:px-8 py-4 flex items-center justify-between gap-3 border-b">
+      <header className="px-4 md:px-8 py-4 flex items-center justify-between gap-3 border-b sticky top-0 bg-background/80 backdrop-blur-sm z-20">
         <Link href="/" className="flex items-center gap-3">
           <Logo className="w-8 h-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline text-foreground">ResumePilot</h1>
         </Link>
         {user && (
             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                     <CreditCard className="w-5 h-5 text-muted-foreground" />
                     <span className="font-medium text-foreground">{state.profile.credits ?? 0}</span>
                     <span className="text-muted-foreground">Credits</span>
                 </div>
-                <Button variant="outline" asChild>
+                <Button variant="outline" asChild className="hidden sm:inline-flex">
                     <Link href="/pricing">Pricing</Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
@@ -980,9 +973,8 @@ export default function ResumePilotClient() {
         {!user ? (
             <LoginView onLogin={handleLogin} />
         ) : (
-            <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
-            {/* LEFT COLUMN */}
-            <div className="flex flex-col gap-8">
+            <div className="max-w-screen-2xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+            <div className="flex flex-col gap-8 xl:sticky xl:top-24">
                 {renderProfileCard()}
                 <Card className="shadow-lg">
                 <CardHeader>
@@ -1040,7 +1032,6 @@ export default function ResumePilotClient() {
                 </Button>
             </div>
 
-            {/* RIGHT COLUMN */}
             <div ref={resultsRef} className="flex flex-col gap-8">
                 <Card className="shadow-lg">
                 <CardHeader>
@@ -1148,7 +1139,7 @@ export default function ResumePilotClient() {
                         />
                     </div>
                     <Tabs defaultValue="resume" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
                         <TabsTrigger value="resume"><Sparkles className="w-4 h-4 mr-2"/>Resume</TabsTrigger>
                         <TabsTrigger value="coverLetter" disabled={!state.optimizedResume}><FileText className="w-4 h-4 mr-2"/>Cover Letter</TabsTrigger>
                         <TabsTrigger value="interview" disabled={!state.coverLetter}><HelpCircle className="w-4 h-4 mr-2"/>Interview</TabsTrigger>
@@ -1206,7 +1197,3 @@ export default function ResumePilotClient() {
     </div>
   );
 }
-
-    
-
-    

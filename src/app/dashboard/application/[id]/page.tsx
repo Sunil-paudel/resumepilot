@@ -6,26 +6,17 @@ import { useDoc, useUser, useFirestore, useAuth } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Logo } from '@/components/app/icons';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { LogOut, Home, Loader2, ArrowLeft, Save, FileText, Mail, HelpCircle, Sparkles } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import type { JobApplication } from '@/lib/types';
-import { format } from 'date-fns';
 import { useMemoFirebase } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { runInterviewQuestionsGeneration, runFollowUpEmailGeneration } from '@/app/actions';
-
-const statusColors: { [key: string]: string } = {
-  Applied: 'bg-blue-500/20 text-blue-300 border-blue-500/50',
-  Interviewing: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
-  Accepted: 'bg-green-500/20 text-green-300 border-green-500/50',
-  Rejected: 'bg-red-500/20 text-red-300 border-red-500/50',
-};
 
 type EditableField = 'optimizedResumeHtml' | 'coverLetterHtml' | 'interviewQuestionsHtml' | 'followUpEmailHtml';
 type GenerationState = false | 'interview' | 'followup';
@@ -71,35 +62,29 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
     
     const appRef = doc(firestore, 'users', user.uid, 'applications', params.id);
     
-    try {
+    return new Promise<boolean>((resolve) => {
       // Non-blocking update
-      updateDoc(appRef, dataToUpdate).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: appRef.path,
-            operation: 'update',
-            requestResourceData: dataToUpdate,
+      updateDoc(appRef, dataToUpdate)
+        .then(() => {
+            // Update local state optimistically
+            setEditedContent(prev => ({...prev, ...dataToUpdate}));
+            resolve(true);
+        })
+        .catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: appRef.path,
+                operation: 'update',
+                requestResourceData: dataToUpdate,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not save changes due to a permissions issue.',
+            });
+            resolve(false);
         });
-        errorEmitter.emit('permission-error', permissionError);
-        // Also show a toast as a fallback
-        toast({
-            variant: 'destructive',
-            title: 'Save Failed',
-            description: 'Could not save changes due to a permissions issue.',
-        });
-      });
-
-      // Update local state optimistically
-      setEditedContent(prev => ({...prev, ...dataToUpdate}));
-      
-      return true;
-    } catch (e: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Save Failed',
-            description: e.message || 'Could not save changes.',
-        });
-        return false;
-    }
+    });
   }
 
   const handleSave = async () => {
@@ -190,20 +175,13 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
               </CardHeader>
               <CardContent>
                   {content !== undefined && content !== '' ? (
-                    <>
-                    <Label htmlFor={field} className="sr-only">{title}</Label>
-                    <Textarea
-                      id={field}
-                      value={content || ''}
-                      onChange={(e) => handleContentChange(field, e.target.value)}
-                      className="h-96 font-mono text-sm"
-                      placeholder={`Edit your ${title.toLowerCase()} content.`}
-                    />
-                    </>
+                    <div className="prose dark:prose-invert max-w-none">
+                        <div dangerouslySetInnerHTML={{ __html: content || ''}} />
+                    </div>
                   ) : handleGenerate ? (
-                      <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
+                      <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary/30 rounded-lg p-8 text-center">
                         <Icon className="w-12 h-12 text-muted-foreground" />
-                        <p className="text-center text-muted-foreground">This document hasn't been generated yet.</p>
+                        <p className="text-muted-foreground">This document hasn't been generated yet.</p>
                         <Button onClick={handleGenerate} disabled={!!generationLoading}>
                           {generateLoading ? (
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -214,7 +192,7 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
                         </Button>
                       </div>
                   ) : (
-                     <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
+                     <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary/30 rounded-lg">
                         <Icon className="w-12 h-12 text-muted-foreground" />
                         <p className="text-center text-muted-foreground">No content available.</p>
                      </div>
@@ -226,7 +204,7 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b px-4 py-4 md:px-8 flex items-center justify-between gap-4">
+      <header className="border-b px-4 py-4 md:px-8 flex items-center justify-between gap-4 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2">
             <Logo className="h-8 w-8 text-primary" />
@@ -248,10 +226,7 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
         <div className="flex items-center gap-2">
             <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin"/> : <Save className="h-4 w-4" />}
-                <span className="ml-2">Save Changes</span>
-            </Button>
-             <Button variant="ghost" asChild>
-                <Link href="/pricing">Pricing</Link>
+                <span className="ml-2 hidden sm:inline">Save Changes</span>
             </Button>
             <Button variant="ghost" size="icon" asChild>
                 <Link href="/generator" title="Generator">
@@ -265,7 +240,7 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
       </header>
       <main className="flex-grow p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {renderEditableDocument('optimizedResumeHtml', 'Optimized Resume', Sparkles)}
                 {renderEditableDocument('coverLetterHtml', 'Cover Letter', FileText)}
                 {renderEditableDocument(
