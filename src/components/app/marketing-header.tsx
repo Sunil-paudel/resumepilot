@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Logo } from '@/components/app/icons';
 import { ArrowRight, Menu } from 'lucide-react';
 
@@ -42,6 +42,10 @@ export function MarketingHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-[240px]">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Mobile Menu</SheetTitle>
+              <SheetDescription>Navigation links for ResumePilot</SheetDescription>
+            </SheetHeader>
             <div className="flex flex-col gap-4 pt-8">
               {navLinks.map((link) => (
                 <SheetClose asChild key={link.href}>
