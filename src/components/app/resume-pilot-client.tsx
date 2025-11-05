@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useReducer, useRef, useState } from 'react';
+import React, { useReducer, useRef, useState, useEffect } from 'react';
 import {
   runJobSuitabilityAnalysis,
   runResumeOptimization,
@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Briefcase,
@@ -29,12 +30,20 @@ import {
   ExternalLink,
   PlusCircle,
   XCircle,
+  User as UserIcon,
+  Save,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
 import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
 import { Badge } from '../ui/badge';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 type State = {
   resumeText: string;
@@ -45,8 +54,9 @@ type State = {
   coverLetter: string | null;
   followUpEmail: string | null;
   skillsToAdd: string[];
-  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'downloading' | false;
+  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'downloading' | 'profile' | false;
   copied: 'resume' | 'coverLetter' | 'followUp' | false;
+  profile: Partial<UserProfile>;
 };
 
 type Action =
@@ -61,6 +71,8 @@ type Action =
   | { type: 'ADD_SKILL'; payload: string }
   | { type: 'REMOVE_SKILL'; payload: string }
   | { type: 'DRAG_SKILL'; payload: { dragIndex: number; hoverIndex: number } }
+  | { type: 'SET_PROFILE'; payload: Partial<UserProfile> }
+  | { type: 'UPDATE_PROFILE_FIELD'; payload: { field: keyof UserProfile; value: string } }
   | { type: 'RESET' };
 
 const initialState: State = {
@@ -74,6 +86,7 @@ const initialState: State = {
   skillsToAdd: [],
   loading: false,
   copied: false,
+  profile: {},
 };
 
 function reducer(state: State, action: Action): State {
@@ -104,9 +117,14 @@ function reducer(state: State, action: Action): State {
       const [draggedItem] = newSkills.splice(action.payload.dragIndex, 1);
       newSkills.splice(action.payload.hoverIndex, 0, draggedItem);
       return { ...state, skillsToAdd: newSkills };
+    case 'SET_PROFILE':
+      return { ...state, profile: action.payload };
+    case 'UPDATE_PROFILE_FIELD':
+      return { ...state, profile: { ...state.profile, [action.payload.field]: action.payload.value } };
     case 'RESET':
       return { 
         ...initialState, 
+        profile: state.profile,
         resumeText: state.resumeText, 
         jobDescriptionText: state.jobDescriptionText 
       };
@@ -176,10 +194,83 @@ export default function ResumePilotClient() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { toast } = useToast();
   const resultsRef = useRef<HTMLDivElement>(null);
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  useEffect(() => {
+    if (user && firestore) {
+      const fetchProfile = async () => {
+        const profileRef = doc(firestore, 'users', user.uid);
+        try {
+          const docSnap = await getDoc(profileRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data() as UserProfile;
+            dispatch({ type: 'SET_PROFILE', payload: data });
+            if (data.email) {
+              dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'email', value: data.email } });
+            }
+          } else {
+            // Pre-fill email from auth if profile doesn't exist
+            if(user.email) dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'email', value: user.email } });
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+        }
+      };
+      fetchProfile();
+    }
+  }, [user, firestore]);
+
+  const handleProfileChange = (field: keyof UserProfile, value: string) => {
+    dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field, value } });
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Not logged in',
+        description: 'You must be logged in to save your profile.',
+      });
+      return;
+    }
+    dispatch({ type: 'SET_LOADING', payload: 'profile' });
+    const profileRef = doc(firestore, 'users', user.uid);
+    try {
+      const dataToSave: UserProfile = {
+        ...state.profile,
+        id: user.uid,
+        email: state.profile.email || user.email || '',
+        firstName: state.profile.firstName || '',
+        lastName: state.profile.lastName || '',
+      };
+      
+      setDoc(profileRef, dataToSave, { merge: true }).catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: profileRef.path,
+            operation: 'update',
+            requestResourceData: dataToSave,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      });
+      
+      toast({
+        title: 'Profile Saved',
+        description: 'Your information has been updated.',
+      });
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Save Failed',
+        description: e.message || 'Could not save profile.',
+      });
+    }
+    dispatch({ type: 'SET_LOADING', payload: false });
+  };
+
 
   const handleCopy = (text: string | null, type: State['copied']) => {
     if (!text || !type) return;
-    // We need to strip HTML for the copy
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = text;
     const plainText = tempDiv.textContent || tempDiv.innerText || '';
@@ -214,7 +305,7 @@ export default function ResumePilotClient() {
   
   const handleOpenInNewTab = (content: string | null) => {
     if (!content) return;
-    const blob = new Blob([`<html><head><title>Document</title></head><body class="prose dark:prose-invert max-w-4xl mx-auto p-8"><style>body { font-family: sans-serif; } h1,h2,h3 { font-weight: bold; } ul { list-style-type: disc; margin-left: 20px; }</style>${content}</body></html>`], { type: 'text/html' });
+    const blob = new Blob([`<html><head><title>Document</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tailwindcss/typography@0.5.x/dist/typography.min.css" /><style>body { font-family: sans-serif; } h1,h2,h3 { font-weight: bold; } ul { list-style-type: disc; margin-left: 20px; }</style></head><body class="prose dark:prose-invert max-w-4xl mx-auto p-8">${content}</body></html>`], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
   };
@@ -267,7 +358,6 @@ export default function ResumePilotClient() {
     }
     dispatch({ type: 'SET_OPTIMIZED_RESUME', payload: optResult.data.optimizedResumeHtml });
 
-    // We need to strip HTML for the analysis
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = optResult.data.optimizedResumeHtml;
     const optimizedText = tempDiv.textContent || tempDiv.innerText || '';
@@ -387,7 +477,6 @@ export default function ResumePilotClient() {
       );
     }
     
-    // Initial state for resume tab before analysis
     if (type === 'resume' && !state.analysisResult) {
         return (
             <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
@@ -397,7 +486,6 @@ export default function ResumePilotClient() {
         )
     }
 
-    // Fallback for cover letter and follow-up
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
         <Icon className="w-12 h-12 text-muted-foreground" />
@@ -474,17 +562,95 @@ export default function ResumePilotClient() {
     )
   }
 
+  const renderProfileCard = () => {
+    if (isUserLoading) {
+      return (
+        <Card className="shadow-lg">
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
+      );
+    }
+    
+    if (!user) {
+      return null; // Don't show profile card if not logged in
+    }
+
+    return (
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center gap-2">
+            <UserIcon />
+            My Profile
+          </CardTitle>
+          <CardDescription>
+            This information will be used to populate your documents.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input id="firstName" value={state.profile.firstName || ''} onChange={(e) => handleProfileChange('firstName', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input id="lastName" value={state.profile.lastName || ''} onChange={(e) => handleProfileChange('lastName', e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" value={state.profile.email || ''} onChange={(e) => handleProfileChange('email', e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone</Label>
+            <Input id="phone" value={state.profile.phone || ''} onChange={(e) => handleProfileChange('phone', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+              <Input id="linkedinUrl" value={state.profile.linkedinUrl || ''} onChange={(e) => handleProfileChange('linkedinUrl', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="githubUrl">GitHub URL</Label>
+              <Input id="githubUrl" value={state.profile.githubUrl || ''} onChange={(e) => handleProfileChange('githubUrl', e.target.value)} />
+            </div>
+          </div>
+          <Button onClick={handleSaveProfile} disabled={state.loading === 'profile'}>
+            {state.loading === 'profile' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Save Profile
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="px-4 md:px-8 py-4 flex items-center gap-3 border-b">
-        <Logo className="w-8 h-8 text-primary" />
-        <h1 className="text-2xl font-bold font-headline text-foreground">ResumePilot</h1>
+      <header className="px-4 md:px-8 py-4 flex items-center justify-between gap-3 border-b">
+        <div className="flex items-center gap-3">
+          <Logo className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl font-bold font-headline text-foreground">ResumePilot</h1>
+        </div>
+        {/* Placeholder for future login/logout button */}
       </header>
 
       <main className="flex-grow p-4 md:p-8">
         <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
           {/* LEFT COLUMN */}
           <div className="flex flex-col gap-8">
+            {renderProfileCard()}
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2">
