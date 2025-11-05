@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useReducer, useRef, useState, useEffect, useCallback } from 'react';
@@ -639,6 +640,26 @@ export default function ResumePilotClient() {
 
   const isAnalyzeDisabled = !state.resumeText || !state.jobDescriptionText || !!state.loading;
 
+  const handleContentChange = (
+    type: 'resume' | 'coverLetter' | 'followUp' | 'interview',
+    value: string
+  ) => {
+      switch (type) {
+          case 'resume':
+              dispatch({ type: 'SET_OPTIMIZED_RESUME', payload: value });
+              break;
+          case 'coverLetter':
+              dispatch({ type: 'SET_COVER_LETTER', payload: value });
+              break;
+          case 'followUp':
+              dispatch({ type: 'SET_FOLLOW_UP_EMAIL', payload: value });
+              break;
+          case 'interview':
+              dispatch({ type: 'SET_INTERVIEW_QUESTIONS', payload: value });
+              break;
+      }
+  };
+
   const renderContent = (
     type: 'resume' | 'coverLetter' | 'followUp' | 'interview',
     content: string | null,
@@ -653,7 +674,7 @@ export default function ResumePilotClient() {
 
     if (state.loading === loadingType) {
       return (
-        <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary" />
           <p className="text-muted-foreground">Generating your {title.toLowerCase()}...</p>
         </div>
@@ -693,17 +714,19 @@ export default function ResumePilotClient() {
               <ExternalLink className="w-4 h-4" />
             </Button>
           </div>
-          <div 
-            dangerouslySetInnerHTML={{ __html: content }} 
-            className="w-full h-96 overflow-y-auto bg-secondary rounded-lg p-4 border prose dark:prose-invert"
-          />
+            <Textarea
+                value={content}
+                onChange={(e) => handleContentChange(type, e.target.value)}
+                className="h-96 font-mono text-sm"
+                placeholder={`Edit your ${title.toLowerCase()}`}
+            />
         </div>
       );
     }
 
     if (!dependency) {
       return (
-        <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
+        <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
           <Icon className="w-12 h-12 text-muted-foreground" />
           <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
         </div>
@@ -711,7 +734,7 @@ export default function ResumePilotClient() {
     }
     
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
+      <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
         <Icon className="w-12 h-12 text-muted-foreground" />
         <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
         <Button onClick={handleGenerate} disabled={!!state.loading}>
