@@ -287,19 +287,27 @@ export default function ResumePilotClient() {
     if (user && firestore) {
       const fetchProfile = async () => {
         const profileRef = doc(firestore, 'users', user.uid);
+        const developerEmails = ['paudelsunil16@gmail.com', 'paudelsgroup@gmail.com'];
         try {
           const docSnap = await getDoc(profileRef);
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
-            dispatch({ type: 'SET_PROFILE', payload: data });
+             // Ensure developers always have 'infinite' credits
+             if (user.email && developerEmails.includes(user.email) && data.credits !== 9999) {
+                await updateDoc(profileRef, { credits: 9999 });
+                dispatch({ type: 'SET_PROFILE', payload: { ...data, credits: 9999 } });
+            } else {
+                dispatch({ type: 'SET_PROFILE', payload: data });
+            }
           } else {
             // New user, create profile with credits
+            const isDeveloper = user.email && developerEmails.includes(user.email);
             const newUserProfile: UserProfile = {
                 id: user.uid,
                 firstName: user.displayName?.split(' ')[0] || '',
                 lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
                 email: user.email || '',
-                credits: 2,
+                credits: isDeveloper ? 9999 : 2, // Infinite for devs, 2 for others
             };
             await setDoc(profileRef, newUserProfile);
             dispatch({ type: 'SET_PROFILE', payload: newUserProfile });
@@ -460,17 +468,22 @@ export default function ResumePilotClient() {
     dispatch({ type: 'RESET' });
     dispatch({ type: 'SET_LOADING', payload: 'analysis' });
 
-    // Decrement credits in Firestore
-    const newCredits = currentCredits - 1;
-    const profileRef = doc(firestore, 'users', user.uid);
-    try {
-        await updateDoc(profileRef, { credits: newCredits });
-        dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'credits', value: newCredits }});
-    } catch (error) {
-        console.error("Failed to update credits:", error);
-        toast({ variant: 'destructive', title: 'Credit Error', description: 'Could not update your credits. Please try again.' });
-        dispatch({ type: 'SET_LOADING', payload: false });
-        return;
+    // Decrement credits in Firestore only if they are not a developer
+    const developerEmails = ['paudelsunil16@gmail.com', 'paudelsgroup@gmail.com'];
+    const isDeveloper = user.email && developerEmails.includes(user.email);
+    
+    if (!isDeveloper) {
+      const newCredits = currentCredits - 1;
+      const profileRef = doc(firestore, 'users', user.uid);
+      try {
+          await updateDoc(profileRef, { credits: newCredits });
+          dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'credits', value: newCredits }});
+      } catch (error) {
+          console.error("Failed to update credits:", error);
+          toast({ variant: 'destructive', title: 'Credit Error', description: 'Could not update your credits. Please try again.' });
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return;
+      }
     }
 
 
