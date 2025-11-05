@@ -33,12 +33,15 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert career coach and interview preparer. Based on the provided resume and job description, generate a list of potential interview questions.
 
   Include a mix of:
-  1.  **Non-Technical/Behavioral Questions**: Ask about teamwork, leadership, problem-solving, etc.
-  2.  **Technical Questions**: Ask about specific skills, technologies, and experiences mentioned in the resume and job description.
+  1.  **Non-Technical/Behavioral Questions**
+  2.  **Technical Questions**
 
   For each question, provide a sample answer using the STAR (Situation, Task, Action, Result) method. The answer should be tailored to the provided resume.
   
-  The output should be a well-structured HTML document. Use <h2> for sections like "Non-Technical Questions" and "Technical Questions", and <h3> for each question. Use paragraphs (<p>) and bold tags (<strong>) to structure the STAR answers clearly. Do not include <html>, <head>, or <body> tags.
+  The output should be a well-structured HTML document. Use semantic HTML tags. Do not include <html>, <head>, or <body> tags. Do not use inline styles.
+  - Use <h2> for main section titles (e.g., "Non-Technical Questions", "Technical Questions").
+  - Use <h3> for each question.
+  - Use paragraphs (<p>) and bold tags (<strong>) to structure the STAR answers clearly (e.g., "<strong>Situation:</strong> ...").
 
   Resume:
   {{resume}}

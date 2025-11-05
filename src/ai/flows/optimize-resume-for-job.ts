@@ -55,13 +55,18 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   Given the following resume, job description, and an optional list of additional skills, create a new resume that is optimized for the job requirements.
   Focus on incorporating relevant keywords from the job description and the provided additional skills list into the resume while maintaining a professional and readable tone.
   
-  The output should be a well-structured HTML document. Use semantic HTML tags like <h2> for sections, <ul> and <li> for lists, etc. Do not include <html>, <head>, or <body> tags.
+  The output should be a well-structured HTML document. Use semantic HTML tags. Do not include <html>, <head>, or <body> tags. Do not use inline styles.
+  - Use <h2> for main section titles (e.g., "Experience", "Skills", "Education").
+  - Use <h3> for job titles or school names.
+  - Use <p> for descriptions.
+  - Use <ul> and <li> for bullet points.
 
   {{#if profile}}
   Start the resume with a header containing the user's contact information. Format it professionally.
-  - Include the user's full name: {{profile.firstName}} {{profile.lastName}}
-  - Include their phone number: {{profile.phone}}
-  - Include their email address: {{profile.email}}
+  - At the top, include the user's full name in an <h1> tag: {{profile.firstName}} {{profile.lastName}}
+  - Below the name, create a paragraph (<p>) containing the following, separated by a character like ' | ':
+    - Phone number: {{profile.phone}}
+    - Email address: {{profile.email}}
   {{#if profile.linkedinUrl}}
   - Include a hyperlink with the text "LinkedIn" that points to {{profile.linkedinUrl}}. Example: <a href="{{profile.linkedinUrl}}">LinkedIn</a>
   {{/if}}

@@ -31,7 +31,9 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateCoverLetterInputSchema},
   output: {schema: GenerateCoverLetterOutputSchema},
   prompt: `You are an expert cover letter writer. You will generate a cover letter based on the provided resume and job description.
-  The output should be a well-structured HTML document. Use paragraphs (<p>) and appropriate spacing. Do not include <html>, <head>, or <body> tags.
+  The output should be a well-structured HTML document. Use semantic HTML tags. Do not include <html>, <head>, or <body> tags. Do not use inline styles.
+  - Use paragraphs (<p>) for the body of the letter.
+  - Use appropriate spacing between paragraphs.
 
   Resume:
   {{resume}}
