@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -7,8 +8,8 @@
  * It uses keyword optimization techniques based on a suitability analysis.
  *
  * @exports optimizeResumeForJob - The main function to trigger the resume optimization flow.
- * @exports OptimizeResumeForJobInput - The input type for the optimizeResumeForJob function.
- * @exports OptimizeResumeForJobOutput - The output type for the optimizeResumeForJob function.
+ * @exports OptimizeResumeForJobInput - The input type for the optimizeResumeFor-Job function.
+ * @exports OptimizeResumeForJobOutput - The output type for the optimizeResumeFor-Job function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -57,9 +58,13 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   output: {schema: OptimizeResumeForJobOutputSchema},
   prompt: `You are an expert resume writer specializing in tailoring resumes to specific job descriptions.
 
-  Given the following resume, job description, and an optional list of additional skills, create a new resume that is optimized for the job requirements.
-  Focus on incorporating relevant keywords from the job description and the provided additional skills list into the resume while maintaining a professional and readable tone.
-  
+  Your main goal is to create a new, optimized resume based on the original resume, the job description, and a list of additional skills.
+  Incorporate relevant keywords from the job description and the 'additionalSkills' list into the new resume. Maintain a professional and readable tone.
+
+  **Crucially, do not just list the skills.** You must show evidence of these skills. Weave the skills and keywords into the bullet points under the "Experience" or "Projects" sections.
+  For example, if the skill to add is "Project Management", find a relevant job experience and add or modify a bullet point to say something like: "Successfully managed a project from conception to completion, resulting in a 15% increase in efficiency."
+  If a skill is completely new and not reflected in the original resume, create a plausible bullet point that demonstrates that skill within the context of a past role.
+
   The output should be a well-structured HTML document. Use semantic HTML tags. Do not include <html>, <head>, or <body> tags. Do not use inline styles.
   - Use <h2> for main section titles (e.g., "Experience", "Skills", "Education").
   - Use <h3> for job titles or school names.
@@ -88,7 +93,7 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   {{jobDescriptionText}}
   
   {{#if additionalSkills}}
-  Additional skills to include:
+  Additional skills to integrate and demonstrate:
   {{#each additionalSkills}}
   - {{this}}
   {{/each}}
@@ -120,3 +125,4 @@ const optimizeResumeForJobFlow = ai.defineFlow(
     return output!;
   }
 );
+
