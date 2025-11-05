@@ -25,6 +25,8 @@ const AnalyzeJobSuitabilityOutputSchema = z.object({
     .max(100)
     .describe('A score indicating compatibility (0-100).'),
   isRightForMe: z.boolean().describe('Whether the job is right for the user'),
+  matchedKeywords: z.array(z.string()).describe('Keywords from the job description found in the resume.'),
+  missingKeywords: z.array(z.string()).describe('Keywords from the job description missing from the resume.'),
 });
 
 export type AnalyzeJobSuitabilityOutput = z.infer<typeof AnalyzeJobSuitabilityOutputSchema>;
@@ -39,9 +41,15 @@ const prompt = ai.definePrompt({
   name: 'analyzeJobSuitabilityPrompt',
   input: {schema: AnalyzeJobSuitabilityInputSchema},
   output: {schema: AnalyzeJobSuitabilityOutputSchema},
-  prompt: `You are a career advisor who analyzes a resume against a job description and provides a compatibility score (0-100) and a boolean 'isRightForMe' that determines if a candidate should apply for the job.
+  prompt: `You are a career advisor who analyzes a resume against a job description.
+  
+  1. Provide a compatibility score (0-100).
+  2. Determine if a candidate should apply for the job ('isRightForMe').
+  3. Extract relevant keywords from the job description.
+  4. Identify which of those keywords are present in the resume ('matchedKeywords').
+  5. Identify which of those keywords are missing from the resume ('missingKeywords').
 
-  Consider keywords, experience, and skills.
+  Consider skills, experience, and qualifications. Both lists of keywords should be comprehensive.
 
   Resume:
   {{resumeText}}

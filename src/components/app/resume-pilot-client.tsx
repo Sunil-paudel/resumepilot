@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useReducer, useRef } from 'react';
+import React, { useReducer, useRef, useState } from 'react';
 import {
   runJobSuitabilityAnalysis,
   runResumeOptimization,
@@ -27,11 +27,14 @@ import {
   Check,
   Download,
   ExternalLink,
+  PlusCircle,
+  XCircle,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
 import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
+import { Badge } from '../ui/badge';
 
 type State = {
   resumeText: string;
@@ -41,6 +44,7 @@ type State = {
   optimizedResume: string | null;
   coverLetter: string | null;
   followUpEmail: string | null;
+  skillsToAdd: string[];
   loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'downloading' | false;
   copied: 'resume' | 'coverLetter' | 'followUp' | false;
 };
@@ -54,6 +58,9 @@ type Action =
   | { type: 'SET_COVER_LETTER'; payload: string | null }
   | { type: 'SET_FOLLOW_UP_EMAIL'; payload: string | null }
   | { type: 'SET_COPIED'; payload: State['copied'] }
+  | { type: 'ADD_SKILL'; payload: string }
+  | { type: 'REMOVE_SKILL'; payload: string }
+  | { type: 'DRAG_SKILL'; payload: { dragIndex: number; hoverIndex: number } }
   | { type: 'RESET' };
 
 const initialState: State = {
@@ -64,6 +71,7 @@ const initialState: State = {
   optimizedResume: null,
   coverLetter: null,
   followUpEmail: null,
+  skillsToAdd: [],
   loading: false,
   copied: false,
 };
@@ -75,7 +83,7 @@ function reducer(state: State, action: Action): State {
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
     case 'SET_ANALYSIS_RESULT':
-      return { ...state, analysisResult: action.payload };
+      return { ...state, analysisResult: action.payload, skillsToAdd: action.payload?.missingKeywords || [] };
     case 'SET_OPTIMIZED_RESUME':
         return { ...state, optimizedResume: action.payload };
     case 'SET_OPTIMIZED_ANALYSIS_RESULT':
@@ -86,6 +94,16 @@ function reducer(state: State, action: Action): State {
         return { ...state, followUpEmail: action.payload };
     case 'SET_COPIED':
         return { ...state, copied: action.payload };
+    case 'ADD_SKILL':
+      if (state.skillsToAdd.includes(action.payload)) return state;
+      return { ...state, skillsToAdd: [...state.skillsToAdd, action.payload] };
+    case 'REMOVE_SKILL':
+      return { ...state, skillsToAdd: state.skillsToAdd.filter(skill => skill !== action.payload) };
+    case 'DRAG_SKILL':
+      const newSkills = [...state.skillsToAdd];
+      const [draggedItem] = newSkills.splice(action.payload.dragIndex, 1);
+      newSkills.splice(action.payload.hoverIndex, 0, draggedItem);
+      return { ...state, skillsToAdd: newSkills };
     case 'RESET':
       return { 
         ...initialState, 
@@ -116,6 +134,43 @@ function base64ToBlob(base64: string, contentType: string = ''): Blob {
   
     return new Blob(byteArrays, { type: contentType });
   }
+
+const DraggableSkill = ({ skill, index, moveSkill, onRemove }: { skill: string, index: number, moveSkill: (dragIndex: number, hoverIndex: number) => void, onRemove: (skill: string) => void }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('text/plain', index.toString());
+    setIsDragging(true);
+  };
+  
+  const handleDragEnd = () => setIsDragging(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const dragIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    moveSkill(dragIndex, index);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+
+  return (
+    <div
+      ref={ref}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      className={`p-2 bg-secondary rounded-md flex items-center justify-between transition-opacity ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+    >
+      <span>{skill}</span>
+      <button onClick={() => onRemove(skill)} className="text-muted-foreground hover:text-destructive">
+        <XCircle className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
 
 export default function ResumePilotClient() {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -159,10 +214,7 @@ export default function ResumePilotClient() {
   
   const handleOpenInNewTab = (content: string | null) => {
     if (!content) return;
-    const blob = new Blob([`<html><head><title>Document</title><link rel="stylesheet" href="/globals.css" /><style>${`
-      body { padding: 2rem; } 
-      .prose { max-width: 800px; margin: 0 auto; }
-    `}</style></head><body><div class="prose dark:prose-invert">${content}</div></body></html>`], { type: 'text/html' });
+    const blob = new Blob([`<html><head><title>Document</title></head><body class="prose dark:prose-invert max-w-4xl mx-auto p-8"><style>body { font-family: sans-serif; } h1,h2,h3 { font-weight: bold; } ul { list-style-type: disc; margin-left: 20px; }</style>${content}</body></html>`], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
   };
@@ -202,7 +254,11 @@ export default function ResumePilotClient() {
   
   const handleOptimizeResume = async () => {
     dispatch({ type: 'SET_LOADING', payload: 'optimizing' });
-    const optResult = await runResumeOptimization({ resumeText: state.resumeText, jobDescriptionText: state.jobDescriptionText });
+    const optResult = await runResumeOptimization({ 
+        resumeText: state.resumeText, 
+        jobDescriptionText: state.jobDescriptionText,
+        additionalSkills: state.skillsToAdd,
+    });
 
     if (optResult.error || !optResult.data) {
         toast({ variant: 'destructive', title: 'Optimization Failed', description: optResult.error });
@@ -259,22 +315,36 @@ export default function ResumePilotClient() {
     dependency: any,
     fileName: string
   ) => {
+    const loadingType = type === 'resume' ? 'optimizing' : type;
+
     if (state.loading === 'analysis') return <Skeleton className="w-full h-64" />;
     
-    if (!dependency) {
-      return (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <p>Complete previous steps to generate {title.toLowerCase()}.</p>
-        </div>
-      );
+    if (type === 'resume' && state.analysisResult && !state.optimizedResume && state.loading !== 'optimizing') {
+        return (
+            <div className="flex flex-col items-center justify-center h-full gap-4 bg-secondary rounded-lg p-4">
+                <KeywordAnalysis />
+                <Button onClick={handleGenerate} disabled={state.loading === 'optimizing'}>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {generateButtonText}
+                </Button>
+            </div>
+        )
     }
-    
-    if (state.loading === type) {
+
+    if (state.loading === loadingType) {
       return <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
         <p className="text-muted-foreground">Generating your {title.toLowerCase()}...</p>
       </div>;
     }
+    
+    if (!dependency && type !== 'resume') {
+        return (
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            <p>Complete previous steps to generate {title.toLowerCase()}.</p>
+          </div>
+        );
+      }
 
     if (content) {
       return (
@@ -316,7 +386,18 @@ export default function ResumePilotClient() {
         </div>
       );
     }
+    
+    // Initial state for resume tab before analysis
+    if (type === 'resume' && !state.analysisResult) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
+                <Icon className="w-12 h-12 text-muted-foreground" />
+                <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
+            </div>
+        )
+    }
 
+    // Fallback for cover letter and follow-up
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
         <Icon className="w-12 h-12 text-muted-foreground" />
@@ -327,6 +408,70 @@ export default function ResumePilotClient() {
         </Button>
       </div>
     );
+  }
+
+  const KeywordAnalysis = () => {
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        const skill = e.dataTransfer.getData('text/plain');
+        if (skill && !state.skillsToAdd.includes(skill)) {
+            dispatch({ type: 'ADD_SKILL', payload: skill });
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const moveSkill = (dragIndex: number, hoverIndex: number) => {
+      dispatch({ type: 'DRAG_SKILL', payload: { dragIndex, hoverIndex } });
+    };
+
+    const removeSkill = (skill: string) => {
+      dispatch({ type: 'REMOVE_SKILL', payload: skill });
+    };
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+            <div>
+                <h4 className="font-semibold mb-2">Keywords Analysis</h4>
+                <div className="space-y-2">
+                    <div>
+                        <h5 className="font-medium text-sm mb-1 text-emerald-400">Matched Keywords</h5>
+                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 rounded-md bg-background/50">
+                            {state.analysisResult?.matchedKeywords.map(k => <Badge variant="secondary" key={k} className="bg-emerald-900/50 text-emerald-300 border-emerald-700">{k}</Badge>)}
+                        </div>
+                    </div>
+                    <div>
+                        <h5 className="font-medium text-sm mb-1 text-red-400">Missing Keywords</h5>
+                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 rounded-md bg-background/50">
+                            {state.analysisResult?.missingKeywords.filter(k => !state.skillsToAdd.includes(k)).map(k => (
+                                <div key={k} draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', k)}>
+                                    <Badge variant="secondary" className="bg-red-900/50 text-red-300 border-red-700 cursor-grab active:cursor-grabbing flex items-center gap-2">
+                                        {k}
+                                        <button onClick={() => dispatch({ type: 'ADD_SKILL', payload: k })} className="hover:text-foreground"><PlusCircle className="w-3 h-3"/></button>
+                                    </Badge>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div 
+                className="bg-background/50 rounded-lg p-2"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+            >
+                <h4 className="font-semibold mb-2">Skills to Add to Resume</h4>
+                <div className="space-y-2 min-h-[10rem] max-h-72 overflow-y-auto">
+                    {state.skillsToAdd.length === 0 && <p className="text-sm text-muted-foreground text-center pt-8">Drag missing keywords here or add your own.</p>}
+                    {state.skillsToAdd.map((skill, i) => (
+                        <DraggableSkill key={skill} index={i} skill={skill} moveSkill={moveSkill} onRemove={removeSkill} />
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
   }
 
   return (
