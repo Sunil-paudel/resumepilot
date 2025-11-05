@@ -33,6 +33,7 @@ const OptimizeResumeForJobInputSchema = z.object({
     zipCode: z.string().optional(),
     linkedinUrl: z.string().optional(),
     githubUrl: z.string().optional(),
+    visaStatus: z.string().optional(),
   }).optional().describe('User\'s profile information to be included in the resume header.'),
 });
 export type OptimizeResumeForJobInput = z.infer<typeof OptimizeResumeForJobInputSchema>;
@@ -92,6 +93,17 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   - {{this}}
   {{/each}}
   {{/if}}
+
+  At the very end of the resume, add two sections:
+  1. A "Visa Status" section. Use an <h2> for the title. If the user's visa status is provided, display it in a <p> tag. If not provided, do not include this section.
+  {{#if profile.visaStatus}}
+  <h2>Visa Status</h2>
+  <p>{{profile.visaStatus}}</p>
+  {{/if}}
+  2. A "References" section. Use an <h2> for the title and a <p> tag with the text "Available upon request."
+  
+  <h2>References</h2>
+  <p>Available upon request.</p>
 
   Optimized Resume HTML:
   `,

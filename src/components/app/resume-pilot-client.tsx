@@ -883,6 +883,10 @@ export default function ResumePilotClient() {
                   <Input id="githubUrl" value={state.profile.githubUrl || ''} onChange={(e) => handleProfileChange('githubUrl', e.target.value)} />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="visaStatus">Visa Status</Label>
+                <Input id="visaStatus" value={state.profile.visaStatus || ''} onChange={(e) => handleProfileChange('visaStatus', e.target.value)} />
+              </div>
               <Button onClick={handleSaveProfile} disabled={state.loading === 'profile'}>
                 {state.loading === 'profile' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Save Profile

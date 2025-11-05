@@ -56,6 +56,10 @@
         "credits": {
           "type": "number",
           "description": "The number of free optimizations the user has remaining."
+        },
+        "visaStatus": {
+            "type": "string",
+            "description": "User's visa or work authorization status."
         }
       },
       "required": [

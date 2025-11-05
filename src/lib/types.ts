@@ -11,6 +11,7 @@ export type UserProfile = {
     linkedinUrl?: string;
     githubUrl?: string;
     credits?: number;
+    visaStatus?: string;
 };
 
 export type JobApplication = {
