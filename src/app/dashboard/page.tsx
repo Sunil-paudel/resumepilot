@@ -106,6 +106,9 @@ export default function DashboardPage() {
           </h1>
         </Link>
         <div className="flex items-center gap-2">
+            <Button variant="ghost" asChild>
+                <Link href="/pricing">Pricing</Link>
+            </Button>
             <Button variant="ghost" size="icon" asChild>
                 <Link href="/generator" title="Back to Generator">
                     <Home className="h-5 w-5" />

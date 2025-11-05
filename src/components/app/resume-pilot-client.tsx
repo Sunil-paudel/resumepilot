@@ -821,6 +821,9 @@ export default function ResumePilotClient() {
         </Link>
         {user && (
             <div className="flex items-center gap-2">
+                <Button variant="outline" asChild>
+                    <Link href="/pricing">Pricing</Link>
+                </Button>
                 <Button variant="outline" size="sm" asChild>
                     <Link href="/dashboard">
                         <LayoutDashboard className="w-4 h-4 mr-2" />

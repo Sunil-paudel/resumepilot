@@ -170,6 +170,9 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin"/> : <Save className="h-4 w-4" />}
                 <span className="ml-2">Save Changes</span>
             </Button>
+             <Button variant="ghost" asChild>
+                <Link href="/pricing">Pricing</Link>
+            </Button>
             <Button variant="ghost" size="icon" asChild>
                 <Link href="/generator" title="Generator">
                     <Home className="h-5 w-5" />

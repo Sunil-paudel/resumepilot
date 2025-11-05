@@ -29,11 +29,16 @@ export default function HomePage() {
             ResumePilot
           </h1>
         </Link>
-        <Button asChild>
-          <Link href="/generator">
-            Get Started <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
+        <nav className="flex items-center gap-4">
+          <Button variant="ghost" asChild>
+            <Link href="/pricing">Pricing</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/generator">
+              Get Started <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </nav>
       </header>
 
       <main className="flex-grow">
