@@ -6,6 +6,7 @@ import {
   runResumeOptimization,
   runCoverLetterGeneration,
   runFollowUpEmailGeneration,
+  runInterviewQuestionsGeneration,
   generateDocx,
 } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ import {
   XCircle,
   User as UserIcon,
   Save,
+  HelpCircle,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
@@ -53,9 +55,10 @@ type State = {
   optimizedResume: string | null;
   coverLetter: string | null;
   followUpEmail: string | null;
+  interviewQuestions: string | null;
   skillsToAdd: string[];
-  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'downloading' | 'profile' | false;
-  copied: 'resume' | 'coverLetter' | 'followUp' | false;
+  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'interview' | 'downloading' | 'profile' | false;
+  copied: 'resume' | 'coverLetter' | 'followUp' | 'interview' | false;
   profile: Partial<UserProfile>;
 };
 
@@ -67,6 +70,7 @@ type Action =
   | { type: 'SET_OPTIMIZED_ANALYSIS_RESULT'; payload: AnalyzeJobSuitabilityOutput | null }
   | { type: 'SET_COVER_LETTER'; payload: string | null }
   | { type: 'SET_FOLLOW_UP_EMAIL'; payload: string | null }
+  | { type: 'SET_INTERVIEW_QUESTIONS'; payload: string | null }
   | { type: 'SET_COPIED'; payload: State['copied'] }
   | { type: 'ADD_SKILL'; payload: string }
   | { type: 'REMOVE_SKILL'; payload: string }
@@ -83,6 +87,7 @@ const initialState: State = {
   optimizedResume: null,
   coverLetter: null,
   followUpEmail: null,
+  interviewQuestions: null,
   skillsToAdd: [],
   loading: false,
   copied: false,
@@ -105,6 +110,8 @@ function reducer(state: State, action: Action): State {
         return { ...state, coverLetter: action.payload };
     case 'SET_FOLLOW_UP_EMAIL':
         return { ...state, followUpEmail: action.payload };
+    case 'SET_INTERVIEW_QUESTIONS':
+        return { ...state, interviewQuestions: action.payload };
     case 'SET_COPIED':
         return { ...state, copied: action.payload };
     case 'ADD_SKILL':
@@ -393,10 +400,22 @@ export default function ResumePilotClient() {
     dispatch({ type: 'SET_LOADING', payload: false });
   }
 
+  const handleGenerateInterviewQuestions = async () => {
+    if (!state.optimizedResume) return;
+    dispatch({ type: 'SET_LOADING', payload: 'interview' });
+    const result = await runInterviewQuestionsGeneration({ resume: state.optimizedResume, jobDescription: state.jobDescriptionText });
+    if (result.error || !result.data) {
+        toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
+    } else {
+        dispatch({ type: 'SET_INTERVIEW_QUESTIONS', payload: result.data.interviewQuestionsHtml });
+    }
+    dispatch({ type: 'SET_LOADING', payload: false });
+  }
+
   const isAnalyzeDisabled = !state.resumeText || !state.jobDescriptionText || !!state.loading;
 
   const renderContent = (
-    type: 'resume' | 'coverLetter' | 'followUp',
+    type: 'resume' | 'coverLetter' | 'followUp' | 'interview',
     content: string | null,
     handleGenerate: () => void,
     generateButtonText: string,
@@ -745,9 +764,10 @@ export default function ResumePilotClient() {
             </Card>
 
             <Tabs defaultValue="resume" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="resume"><Sparkles className="w-4 h-4 mr-2"/>Resume</TabsTrigger>
                 <TabsTrigger value="coverLetter" disabled={!state.optimizedResume}><FileText className="w-4 h-4 mr-2"/>Cover Letter</TabsTrigger>
+                <TabsTrigger value="interview" disabled={!state.coverLetter}><HelpCircle className="w-4 h-4 mr-2"/>Interview</TabsTrigger>
                 <TabsTrigger value="followUp" disabled={!state.coverLetter}><Mail className="w-4 h-4 mr-2"/>Follow-Up</TabsTrigger>
               </TabsList>
               <TabsContent value="resume" className="mt-4">
@@ -755,6 +775,9 @@ export default function ResumePilotClient() {
               </TabsContent>
               <TabsContent value="coverLetter" className="mt-4">
                 {renderContent('coverLetter', state.coverLetter, handleGenerateCoverLetter, 'Generate Cover Letter', 'Cover Letter', FileText, state.optimizedResume, 'cover-letter')}
+              </TabsContent>
+              <TabsContent value="interview" className="mt-4">
+                {renderContent('interview', state.interviewQuestions, handleGenerateInterviewQuestions, 'Generate Interview Questions', 'Interview Prep', HelpCircle, state.coverLetter, 'interview-prep')}
               </TabsContent>
               <TabsContent value="followUp" className="mt-4">
                 {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter, 'follow-up-email')}

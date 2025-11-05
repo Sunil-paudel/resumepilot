@@ -4,6 +4,7 @@ import { analyzeJobSuitability, AnalyzeJobSuitabilityInput } from '@/ai/flows/an
 import { generateCoverLetter, GenerateCoverLetterInput } from '@/ai/flows/generate-cover-letter';
 import { generateFollowUpEmail, GenerateFollowUpEmailInput } from '@/ai/flows/generate-follow-up-email';
 import { optimizeResumeForJob, OptimizeResumeForJobInput } from '@/ai/flows/optimize-resume-for-job';
+import { generateInterviewQuestions, GenerateInterviewQuestionsInput } from '@/ai/flows/generate-interview-questions';
 import htmlToDocx from 'html-to-docx';
 
 export async function runJobSuitabilityAnalysis(input: AnalyzeJobSuitabilityInput) {
@@ -43,6 +44,16 @@ export async function runFollowUpEmailGeneration(input: GenerateFollowUpEmailInp
   } catch (error) {
     console.error(error);
     return { error: 'Failed to generate follow-up email.' };
+  }
+}
+
+export async function runInterviewQuestionsGeneration(input: GenerateInterviewQuestionsInput) {
+  try {
+    const result = await generateInterviewQuestions(input);
+    return { data: result };
+  } catch (error) {
+    console.error(error);
+    return { error: 'Failed to generate interview questions.' };
   }
 }
 
