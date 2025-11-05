@@ -1164,7 +1164,7 @@ export default function ResumePilotClient() {
                     </Tabs>
                   </div>
                 )}
-                {state.coverLetter && !state.applicationId && (
+                {state.optimizedResume && state.coverLetter && !state.applicationId && (
                     <Card className="shadow-lg">
                         <CardHeader>
                             <CardTitle>Save Your Application</CardTitle>

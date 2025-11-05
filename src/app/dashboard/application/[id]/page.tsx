@@ -18,6 +18,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { runInterviewQuestionsGeneration, runFollowUpEmailGeneration } from '@/app/actions';
 
 const statusColors: { [key: string]: string } = {
   Applied: 'bg-blue-500/20 text-blue-300 border-blue-500/50',
@@ -27,6 +28,7 @@ const statusColors: { [key: string]: string } = {
 };
 
 type EditableField = 'optimizedResumeHtml' | 'coverLetterHtml' | 'interviewQuestionsHtml' | 'followUpEmailHtml';
+type GenerationState = false | 'interview' | 'followup';
 
 export default function ApplicationDetailPage({ params }: { params: { id: string } }) {
   const { user, isUserLoading } = useUser();
@@ -34,6 +36,7 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
   const auth = useAuth();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [generationLoading, setGenerationLoading] = useState<GenerationState>(false);
   const [editedContent, setEditedContent] = useState<Partial<JobApplication>>({});
 
   const applicationRef = useMemoFirebase(() => {
@@ -41,7 +44,7 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
     return doc(firestore, 'users', user.uid, 'applications', params.id);
   }, [firestore, user, params.id]);
 
-  const { data: application, isLoading } = useDoc<JobApplication>(applicationRef);
+  const { data: application, isLoading, error: applicationError } = useDoc<JobApplication>(applicationRef);
 
   useEffect(() => {
     if (application) {
@@ -63,36 +66,89 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
     setEditedContent(prev => ({...prev, [field]: value}));
   };
 
-  const handleSave = async () => {
-      if(!user || !firestore || !params.id) return;
-      setIsSaving(true);
-      
-      const appRef = doc(firestore, 'users', user.uid, 'applications', params.id);
-      const dataToUpdate = {
-          ...editedContent
-      };
-      
-      try {
-        await updateDoc(appRef, dataToUpdate);
-        toast({
-            title: 'Saved!',
-            description: 'Your changes have been saved successfully.',
+  const updateApplication = async (dataToUpdate: Partial<JobApplication>) => {
+    if(!user || !firestore || !params.id) return;
+    
+    const appRef = doc(firestore, 'users', user.uid, 'applications', params.id);
+    
+    try {
+      // Non-blocking update
+      updateDoc(appRef, dataToUpdate).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: appRef.path,
+            operation: 'update',
+            requestResourceData: dataToUpdate,
         });
-      } catch (e: any) {
-         const permissionError = new FirestorePermissionError({
-              path: appRef.path,
-              operation: 'update',
-              requestResourceData: dataToUpdate,
-            });
         errorEmitter.emit('permission-error', permissionError);
+        // Also show a toast as a fallback
+        toast({
+            variant: 'destructive',
+            title: 'Save Failed',
+            description: 'Could not save changes due to a permissions issue.',
+        });
+      });
+
+      // Update local state optimistically
+      setEditedContent(prev => ({...prev, ...dataToUpdate}));
+      
+      return true;
+    } catch (e: any) {
         toast({
             variant: 'destructive',
             title: 'Save Failed',
             description: e.message || 'Could not save changes.',
         });
+        return false;
+    }
+  }
+
+  const handleSave = async () => {
+      setIsSaving(true);
+      const success = await updateApplication(editedContent);
+      if (success) {
+          toast({
+              title: 'Saved!',
+              description: 'Your changes have been saved successfully.',
+          });
       }
       setIsSaving(false);
   };
+
+  const handleGenerateInterviewQuestions = async () => {
+    if (!application?.optimizedResumeHtml || !application.jobDescriptionText) {
+      toast({ variant: 'destructive', title: 'Missing Content', description: 'Resume and job description are needed to generate questions.' });
+      return;
+    }
+    setGenerationLoading('interview');
+    const result = await runInterviewQuestionsGeneration({ resume: application.optimizedResumeHtml, jobDescription: application.jobDescriptionText });
+    if (result.error || !result.data) {
+      toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
+    } else {
+      await updateApplication({ interviewQuestionsHtml: result.data.interviewQuestionsHtml });
+      toast({ title: 'Success!', description: 'Interview prep has been generated and saved.' });
+    }
+    setGenerationLoading(false);
+  }
+
+  const handleGenerateFollowUpEmail = async () => {
+    if (!application?.optimizedResumeHtml || !application?.coverLetterHtml || !application.jobDescriptionText) {
+        toast({ variant: 'destructive', title: 'Missing Content', description: 'Resume, cover letter, and job description are needed.' });
+        return;
+    }
+    setGenerationLoading('followup');
+    const result = await runFollowUpEmailGeneration({ 
+        resumeContent: application.optimizedResumeHtml, 
+        coverLetterContent: application.coverLetterHtml, 
+        jobDescription: application.jobDescriptionText
+    });
+    if (result.error || !result.data) {
+        toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
+    } else {
+        await updateApplication({ followUpEmailHtml: result.data.followUpEmailHtml });
+        toast({ title: 'Success!', description: 'Follow-up email has been generated and saved.' });
+    }
+    setGenerationLoading(false);
+  }
 
 
   if (isUserLoading || isLoading) {
@@ -106,8 +162,8 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
   if (!application) {
     return (
         <div className="flex flex-col min-h-screen items-center justify-center bg-background">
-             <h1 className="text-2xl font-bold font-headline text-destructive mb-4">Application Not Found</h1>
-             <p className="text-muted-foreground mb-8">We couldn't find the application you were looking for.</p>
+             <h1 className="text-2xl font-bold font-headline text-destructive mb-4">{applicationError ? 'Access Denied' : 'Application Not Found'}</h1>
+             <p className="text-muted-foreground mb-8">{applicationError ? "You don't have permission to view this." : "We couldn't find the application you were looking for."}</p>
              <Button asChild>
                 <Link href="/dashboard">
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -121,7 +177,9 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
   const renderEditableDocument = (
       field: EditableField,
       title: string,
-      Icon: React.ElementType
+      Icon: React.ElementType,
+      handleGenerate?: () => void,
+      generateLoading?: boolean
   ) => {
       const content = editedContent[field];
       
@@ -131,14 +189,36 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
                   <CardTitle className="flex items-center gap-2 font-headline"><Icon className="w-5 h-5"/>{title}</CardTitle>
               </CardHeader>
               <CardContent>
-                  <Label htmlFor={field} className="sr-only">{title}</Label>
-                  <Textarea
-                    id={field}
-                    value={content || ''}
-                    onChange={(e) => handleContentChange(field, e.target.value)}
-                    className="h-96 font-mono text-sm"
-                    placeholder={`No ${title.toLowerCase()} content available.`}
-                  />
+                  {content !== undefined && content !== '' ? (
+                    <>
+                    <Label htmlFor={field} className="sr-only">{title}</Label>
+                    <Textarea
+                      id={field}
+                      value={content || ''}
+                      onChange={(e) => handleContentChange(field, e.target.value)}
+                      className="h-96 font-mono text-sm"
+                      placeholder={`Edit your ${title.toLowerCase()} content.`}
+                    />
+                    </>
+                  ) : handleGenerate ? (
+                      <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
+                        <Icon className="w-12 h-12 text-muted-foreground" />
+                        <p className="text-center text-muted-foreground">This document hasn't been generated yet.</p>
+                        <Button onClick={handleGenerate} disabled={!!generationLoading}>
+                          {generateLoading ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                              <Sparkles className="w-4 h-4 mr-2" />
+                          )}
+                          Generate {title}
+                        </Button>
+                      </div>
+                  ) : (
+                     <div className="flex flex-col items-center justify-center h-96 gap-4 bg-secondary rounded-lg">
+                        <Icon className="w-12 h-12 text-muted-foreground" />
+                        <p className="text-center text-muted-foreground">No content available.</p>
+                     </div>
+                  )}
               </CardContent>
           </Card>
       )
@@ -188,8 +268,20 @@ export default function ApplicationDetailPage({ params }: { params: { id: string
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {renderEditableDocument('optimizedResumeHtml', 'Optimized Resume', Sparkles)}
                 {renderEditableDocument('coverLetterHtml', 'Cover Letter', FileText)}
-                {renderEditableDocument('interviewQuestionsHtml', 'Interview Prep', HelpCircle)}
-                {renderEditableDocument('followUpEmailHtml', 'Follow-up Email', Mail)}
+                {renderEditableDocument(
+                  'interviewQuestionsHtml', 
+                  'Interview Prep', 
+                  HelpCircle,
+                  handleGenerateInterviewQuestions,
+                  generationLoading === 'interview'
+                )}
+                {renderEditableDocument(
+                  'followUpEmailHtml',
+                  'Follow-up Email',
+                  Mail,
+                  handleGenerateFollowUpEmail,
+                  generationLoading === 'followup'
+                )}
             </div>
         </div>
       </main>
