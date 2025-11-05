@@ -13,6 +13,15 @@ import { Label } from '@/components/ui/label';
 import { MarketingHeader } from '@/components/app/marketing-header';
 import { handleInquiry, type InquiryState } from './actions';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const initialState: InquiryState = {
   success: false,
@@ -35,16 +44,15 @@ export default function ContactPage() {
   const [state, formAction] = useActionState(handleInquiry, initialState);
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = React.useState(false);
+
 
   React.useEffect(() => {
     if (state.message) {
       if (state.success) {
-        toast({
-          title: 'Message Sent!',
-          description: state.message,
-        });
+        setShowSuccessDialog(true);
         formRef.current?.reset();
-      } else {
+      } else if (state.message && !state.success) {
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -100,6 +108,22 @@ export default function ContactPage() {
           </Card>
         </div>
       </main>
+
+       <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Message Sent!</AlertDialogTitle>
+            <AlertDialogDescription>
+              {state.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>
+              Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
