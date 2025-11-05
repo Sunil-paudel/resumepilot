@@ -1,27 +1,58 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Send } from 'lucide-react';
+import { useFormState, useFormStatus } from 'react-dom';
+import { ArrowRight, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/app/icons';
+import { handleInquiry, type InquiryState } from './actions';
 import { useToast } from '@/hooks/use-toast';
 
-export default function ContactPage() {
-  const { toast } = useToast();
+const initialState: InquiryState = {
+  success: false,
+  message: '',
+  errors: null,
+};
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast({
-      title: 'Message Sent!',
-      description: 'Thank you for reaching out. We will get back to you shortly.',
-    });
-    // In a real app, you would handle form submission to a backend here.
-    // e.g., (e.target as HTMLFormElement).reset();
-  };
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+      {pending ? 'Sending...' : 'Send Message'}
+    </Button>
+  );
+}
+
+export default function ContactPage() {
+  const [state, formAction] = useFormState(handleInquiry, initialState);
+  const { toast } = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  React.useEffect(() => {
+    if (state.message) {
+      if (state.success) {
+        toast({
+          title: 'Message Sent!',
+          description: state.message,
+        });
+        formRef.current?.reset();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: state.message,
+        });
+      }
+    }
+  }, [state, toast]);
+  
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -61,25 +92,25 @@ export default function ContactPage() {
               <CardDescription>Fill out the form below and we'll get back to you as soon as possible.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form ref={formRef} action={formAction} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Name</Label>
-                        <Input id="name" placeholder="Your Name" required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="your.email@example.com" required />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input id="name" name="name" placeholder="Your Name" required />
+                    {state.errors?.name && <p className="text-sm font-medium text-destructive">{state.errors.name[0]}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" type="email" placeholder="your.email@example.com" required />
+                    {state.errors?.email && <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="message">Message</Label>
-                  <Textarea id="message" placeholder="Your message..." required className="min-h-[150px]" />
+                  <Textarea id="message" name="message" placeholder="Your message..." required className="min-h-[150px]" />
+                  {state.errors?.message && <p className="text-sm font-medium text-destructive">{state.errors.message[0]}</p>}
                 </div>
-                <Button type="submit" className="w-full">
-                  <Send className="mr-2 h-4 w-4" />
-                  Send Message
-                </Button>
+                <SubmitButton />
               </form>
             </CardContent>
           </Card>
