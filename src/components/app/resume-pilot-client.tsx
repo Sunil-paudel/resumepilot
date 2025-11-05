@@ -26,6 +26,7 @@ import {
   Copy,
   Check,
   Download,
+  ExternalLink,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
@@ -154,6 +155,16 @@ export default function ResumePilotClient() {
       });
     }
     dispatch({ type: 'SET_LOADING', payload: false });
+  };
+  
+  const handleOpenInNewTab = (content: string | null) => {
+    if (!content) return;
+    const blob = new Blob([`<html><head><title>Document</title><link rel="stylesheet" href="/globals.css" /><style>${`
+      body { padding: 2rem; } 
+      .prose { max-width: 800px; margin: 0 auto; }
+    `}</style></head><body><div class="prose dark:prose-invert">${content}</div></body></html>`], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
   };
 
   const handleAnalyze = async () => {
@@ -287,6 +298,15 @@ export default function ResumePilotClient() {
               disabled={state.loading === 'downloading'}
             >
               {state.loading === 'downloading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleOpenInNewTab(content)}
+              title="Open in new tab"
+            >
+              <ExternalLink className="w-4 h-4" />
             </Button>
           </div>
           <div 
