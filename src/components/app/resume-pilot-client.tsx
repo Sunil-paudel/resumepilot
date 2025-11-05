@@ -673,7 +673,7 @@ export default function ResumePilotClient() {
     dependency: any,
     fileName: string
   ) => {
-    const loadingType = type === 'resume' ? 'optimizing' : type;
+    const loadingType = type === 'resume' ? 'optimizing' : (type === 'coverLetter' ? 'coverLetter' : (type === 'interview' ? 'interview' : 'followUp'));
 
     if (state.loading === loadingType) {
       return (
@@ -1202,5 +1202,3 @@ export default function ResumePilotClient() {
     </div>
   );
 }
-
-    
