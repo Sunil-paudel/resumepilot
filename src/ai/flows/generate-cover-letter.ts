@@ -18,7 +18,7 @@ const GenerateCoverLetterInputSchema = z.object({
 export type GenerateCoverLetterInput = z.infer<typeof GenerateCoverLetterInputSchema>;
 
 const GenerateCoverLetterOutputSchema = z.object({
-  coverLetter: z.string().describe('The generated cover letter.'),
+  coverLetterHtml: z.string().describe('The generated cover letter as an HTML document.'),
 });
 export type GenerateCoverLetterOutput = z.infer<typeof GenerateCoverLetterOutputSchema>;
 
@@ -31,6 +31,7 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateCoverLetterInputSchema},
   output: {schema: GenerateCoverLetterOutputSchema},
   prompt: `You are an expert cover letter writer. You will generate a cover letter based on the provided resume and job description.
+  The output should be a well-structured HTML document. Use paragraphs (<p>) and appropriate spacing. Do not include <html>, <head>, or <body> tags.
 
   Resume:
   {{resume}}
@@ -38,7 +39,7 @@ const prompt = ai.definePrompt({
   Job Description:
   {{jobDescription}}
 
-  Cover Letter:`,
+  Cover Letter HTML:`,
 });
 
 const generateCoverLetterFlow = ai.defineFlow(

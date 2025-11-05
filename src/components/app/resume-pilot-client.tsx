@@ -24,11 +24,13 @@ import {
   Loader2,
   Copy,
   Check,
-  ChevronRight,
+  Download,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
 import { Skeleton } from '../ui/skeleton';
+import { saveAs } from 'file-saver';
+import htmlToDocx from 'html-to-docx';
 
 type State = {
   resumeText: string;
@@ -105,6 +107,21 @@ export default function ResumePilotClient() {
     dispatch({ type: 'SET_COPIED', payload: type });
     setTimeout(() => dispatch({ type: 'SET_COPIED', payload: false }), 2000);
   };
+  
+  const handleDownload = async (content: string | null, fileName: string) => {
+    if (!content) return;
+    try {
+      const fileBuffer = await htmlToDocx(content);
+      saveAs(fileBuffer as Blob, `${fileName}.docx`);
+    } catch(e) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: 'Download Failed',
+        description: 'Could not generate document for download.',
+      });
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!state.resumeText || !state.jobDescriptionText) {
@@ -148,9 +165,14 @@ export default function ResumePilotClient() {
         dispatch({ type: 'SET_LOADING', payload: false });
         return;
     }
-    dispatch({ type: 'SET_OPTIMIZED_RESUME', payload: optResult.data.optimizedResumeText });
+    dispatch({ type: 'SET_OPTIMIZED_RESUME', payload: optResult.data.optimizedResumeHtml });
 
-    const newAnalysisResult = await runJobSuitabilityAnalysis({ resumeText: optResult.data.optimizedResumeText, jobDescriptionText: state.jobDescriptionText });
+    // We need to strip HTML for the analysis
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = optResult.data.optimizedResumeHtml;
+    const optimizedText = tempDiv.textContent || tempDiv.innerText || '';
+
+    const newAnalysisResult = await runJobSuitabilityAnalysis({ resumeText: optimizedText, jobDescriptionText: state.jobDescriptionText });
     if(newAnalysisResult.data) {
         dispatch({ type: 'SET_OPTIMIZED_ANALYSIS_RESULT', payload: newAnalysisResult.data });
     }
@@ -164,7 +186,7 @@ export default function ResumePilotClient() {
     if (result.error || !result.data) {
         toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
     } else {
-        dispatch({ type: 'SET_COVER_LETTER', payload: result.data.coverLetter });
+        dispatch({ type: 'SET_COVER_LETTER', payload: result.data.coverLetterHtml });
     }
     dispatch({ type: 'SET_LOADING', payload: false });
   }
@@ -176,7 +198,7 @@ export default function ResumePilotClient() {
     if (result.error || !result.data) {
         toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
     } else {
-        dispatch({ type: 'SET_FOLLOW_UP_EMAIL', payload: result.data.followUpEmail });
+        dispatch({ type: 'SET_FOLLOW_UP_EMAIL', payload: result.data.followUpEmailHtml });
     }
     dispatch({ type: 'SET_LOADING', payload: false });
   }
@@ -190,7 +212,8 @@ export default function ResumePilotClient() {
     generateButtonText: string,
     title: string,
     Icon: React.ElementType,
-    dependency: any
+    dependency: any,
+    fileName: string
   ) => {
     if (state.loading === 'analysis') return <Skeleton className="w-full h-64" />;
     
@@ -212,15 +235,30 @@ export default function ResumePilotClient() {
     if (content) {
       return (
         <div className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 z-10 h-8 w-8"
-            onClick={() => handleCopy(content, type)}
-          >
-            {state.copied === type ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-          </Button>
-          <Textarea readOnly value={content} className="w-full h-96 bg-secondary border-none" />
+          <div className="absolute top-2 right-2 z-10 flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleCopy(content, type)}
+              title="Copy to clipboard"
+            >
+              {state.copied === type ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleDownload(content, fileName)}
+              title="Download as .docx"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+          </div>
+          <div 
+            dangerouslySetInnerHTML={{ __html: content }} 
+            className="w-full h-96 overflow-y-auto bg-secondary rounded-lg p-4 border prose dark:prose-invert"
+          />
         </div>
       );
     }
@@ -363,13 +401,13 @@ export default function ResumePilotClient() {
                 <TabsTrigger value="followUp" disabled={!state.coverLetter}><Mail className="w-4 h-4 mr-2"/>Follow-Up</TabsTrigger>
               </TabsList>
               <TabsContent value="resume" className="mt-4">
-                {renderContent('resume', state.optimizedResume, handleOptimizeResume, 'Optimize My Resume', 'Optimized Resume', Sparkles, state.analysisResult)}
+                {renderContent('resume', state.optimizedResume, handleOptimizeResume, 'Optimize My Resume', 'Optimized Resume', Sparkles, state.analysisResult, 'optimized-resume')}
               </TabsContent>
               <TabsContent value="coverLetter" className="mt-4">
-                {renderContent('coverLetter', state.coverLetter, handleGenerateCoverLetter, 'Generate Cover Letter', 'Cover Letter', FileText, state.optimizedResume)}
+                {renderContent('coverLetter', state.coverLetter, handleGenerateCoverLetter, 'Generate Cover Letter', 'Cover Letter', FileText, state.optimizedResume, 'cover-letter')}
               </TabsContent>
               <TabsContent value="followUp" className="mt-4">
-                {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter)}
+                {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter, 'follow-up-email')}
               </TabsContent>
             </Tabs>
           </div>

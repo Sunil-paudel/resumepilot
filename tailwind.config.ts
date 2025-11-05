@@ -9,6 +9,34 @@ export default {
   ],
   theme: {
     extend: {
+      typography: (theme: (arg0: string) => any) => ({
+        DEFAULT: {
+          css: {
+            color: theme('colors.foreground'),
+            h1: {
+              color: theme('colors.foreground'),
+            },
+            h2: {
+              color: theme('colors.foreground'),
+            },
+            h3: {
+              color: theme('colors.foreground'),
+            },
+            h4: {
+              color: theme('colors.foreground'),
+            },
+            strong: {
+              color: theme('colors.foreground'),
+            },
+            a: {
+              color: theme('colors.primary.DEFAULT'),
+              '&:hover': {
+                color: theme('colors.primary.DEFAULT'),
+              },
+            },
+          },
+        },
+      }),
       fontFamily: {
         body: ['Inter', 'sans-serif'],
         headline: ['Space Grotesk', 'sans-serif'],
@@ -95,5 +123,8 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    require('@tailwindcss/typography'),
+  ],
 } satisfies Config;

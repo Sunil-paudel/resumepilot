@@ -23,7 +23,7 @@ const GenerateFollowUpEmailInputSchema = z.object({
 export type GenerateFollowUpEmailInput = z.infer<typeof GenerateFollowUpEmailInputSchema>;
 
 const GenerateFollowUpEmailOutputSchema = z.object({
-  followUpEmail: z.string().describe('The generated follow-up email draft.'),
+  followUpEmailHtml: z.string().describe('The generated follow-up email draft as an HTML document.'),
 });
 export type GenerateFollowUpEmailOutput = z.infer<typeof GenerateFollowUpEmailOutputSchema>;
 
@@ -40,6 +40,7 @@ const prompt = ai.definePrompt({
   prompt: `You are an AI assistant specialized in crafting professional follow-up emails.
 
   Given the resume content, cover letter content, and job description below, generate a follow-up email draft tailored to the job applied for.
+  The output should be a well-structured HTML document. Use paragraphs (<p>) and appropriate spacing. Do not include <html>, <head>, or <body> tags.
 
   Resume Content: {{{resumeContent}}}
   Cover Letter Content: {{{coverLetterContent}}}

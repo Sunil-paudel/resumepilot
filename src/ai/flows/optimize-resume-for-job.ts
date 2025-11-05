@@ -23,9 +23,9 @@ const OptimizeResumeForJobInputSchema = z.object({
 export type OptimizeResumeForJobInput = z.infer<typeof OptimizeResumeForJobInputSchema>;
 
 const OptimizeResumeForJobOutputSchema = z.object({
-  optimizedResumeText: z
+  optimizedResumeHtml: z
     .string()
-    .describe('The optimized resume text tailored to the job description.'),
+    .describe('The optimized resume HTML tailored to the job description.'),
 });
 export type OptimizeResumeForJobOutput = z.infer<typeof OptimizeResumeForJobOutputSchema>;
 
@@ -43,6 +43,8 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
 
   Given the following resume and job description, create a new resume that is optimized for the job requirements.
   Focus on incorporating relevant keywords from the job description into the resume while maintaining a professional and readable tone.
+  
+  The output should be a well-structured HTML document. Use semantic HTML tags like <h2> for sections, <ul> and <li> for lists, etc. Do not include <html>, <head>, or <body> tags.
 
   Resume:
   {{resumeText}}
@@ -50,7 +52,7 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   Job Description:
   {{jobDescriptionText}}
 
-  Optimized Resume:
+  Optimized Resume HTML:
   `,
 });
 
