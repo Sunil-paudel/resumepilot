@@ -27,6 +27,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Briefcase,
   FileText,
   Sparkles,
@@ -45,6 +54,7 @@ import {
   ChevronUp,
   LayoutDashboard,
   Eye,
+  CreditCard,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
@@ -52,7 +62,7 @@ import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
 import { Badge } from '../ui/badge';
 import { useUser, useFirestore, useAuth, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore';
 import type { UserProfile, JobApplication } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -76,6 +86,7 @@ type State = {
   profile: Partial<UserProfile>;
   isProfileOpen: boolean;
   applicationId: string | null;
+  showOutOfCreditsDialog: boolean;
 };
 
 type Action =
@@ -92,9 +103,10 @@ type Action =
   | { type: 'REMOVE_SKILL'; payload: string }
   | { type: 'DRAG_SKILL'; payload: { dragIndex: number; hoverIndex: number } }
   | { type: 'SET_PROFILE'; payload: Partial<UserProfile> }
-  | { type: 'UPDATE_PROFILE_FIELD'; payload: { field: keyof UserProfile; value: string } }
+  | { type: 'UPDATE_PROFILE_FIELD'; payload: { field: keyof UserProfile; value: string | number } }
   | { type: 'TOGGLE_PROFILE' }
   | { type: 'SET_APPLICATION_ID', payload: string | null }
+  | { type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: boolean }
   | { type: 'RESET' };
 
 const initialState: State = {
@@ -114,6 +126,7 @@ const initialState: State = {
   profile: {},
   isProfileOpen: true,
   applicationId: null,
+  showOutOfCreditsDialog: false,
 };
 
 function reducer(state: State, action: Action): State {
@@ -154,6 +167,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, isProfileOpen: !state.isProfileOpen };
     case 'SET_APPLICATION_ID':
       return { ...state, applicationId: action.payload };
+    case 'SHOW_OUT_OF_CREDITS_DIALOG':
+      return { ...state, showOutOfCreditsDialog: action.payload };
     case 'RESET':
       return { 
         ...initialState, 
@@ -277,19 +292,20 @@ export default function ResumePilotClient() {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
             dispatch({ type: 'SET_PROFILE', payload: data });
-            if (data.email) {
-              dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'email', value: data.email } });
-            }
           } else {
-            // Pre-fill email and name from auth if profile doesn't exist
-            if(user.email) dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'email', value: user.email } });
-            const nameParts = user.displayName?.split(' ') || [];
-            if(nameParts[0]) dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'firstName', value: nameParts[0] } });
-            if(nameParts[1]) dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'lastName', value: nameParts.slice(1).join(' ') } });
-            
+            // New user, create profile with credits
+            const newUserProfile: UserProfile = {
+                id: user.uid,
+                firstName: user.displayName?.split(' ')[0] || '',
+                lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+                email: user.email || '',
+                credits: 2,
+            };
+            await setDoc(profileRef, newUserProfile);
+            dispatch({ type: 'SET_PROFILE', payload: newUserProfile });
           }
         } catch (error) {
-          console.error("Error fetching user profile:", error);
+          console.error("Error fetching/creating user profile:", error);
         }
       };
       fetchProfile();
@@ -333,7 +349,7 @@ export default function ResumePilotClient() {
   };
 
 
-  const handleProfileChange = (field: keyof UserProfile, value: string) => {
+  const handleProfileChange = (field: keyof UserProfile, value: string | number) => {
     dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field, value } });
   };
 
@@ -349,18 +365,10 @@ export default function ResumePilotClient() {
     dispatch({ type: 'SET_LOADING', payload: 'profile' });
     const profileRef = doc(firestore, 'users', user.uid);
     try {
-      const dataToSave: UserProfile = {
+      const dataToSave: Partial<UserProfile> = {
+        ...state.profile,
         id: user.uid,
-        firstName: state.profile.firstName || '',
-        lastName: state.profile.lastName || '',
         email: state.profile.email || user.email || '',
-        phone: state.profile.phone || '',
-        address: state.profile.address || '',
-        city: state.profile.city || '',
-        state: state.profile.state || '',
-        zipCode: state.profile.zipCode || '',
-        linkedinUrl: state.profile.linkedinUrl || '',
-        githubUrl: state.profile.githubUrl || '',
       };
       
       setDoc(profileRef, dataToSave, { merge: true }).catch(async (serverError) => {
@@ -437,9 +445,34 @@ export default function ResumePilotClient() {
       });
       return;
     }
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'Cannot find user.'});
+      return;
+    }
+
+    // Credit check
+    const currentCredits = state.profile.credits ?? 0;
+    if (currentCredits <= 0) {
+        dispatch({ type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: true });
+        return;
+    }
 
     dispatch({ type: 'RESET' });
     dispatch({ type: 'SET_LOADING', payload: 'analysis' });
+
+    // Decrement credits in Firestore
+    const newCredits = currentCredits - 1;
+    const profileRef = doc(firestore, 'users', user.uid);
+    try {
+        await updateDoc(profileRef, { credits: newCredits });
+        dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'credits', value: newCredits }});
+    } catch (error) {
+        console.error("Failed to update credits:", error);
+        toast({ variant: 'destructive', title: 'Credit Error', description: 'Could not update your credits. Please try again.' });
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return;
+    }
+
 
     const result = await runJobSuitabilityAnalysis({
       resumeText: state.resumeText,
@@ -804,6 +837,31 @@ export default function ResumePilotClient() {
     );
   }
 
+  const OutOfCreditsDialog = () => (
+    <AlertDialog
+        open={state.showOutOfCreditsDialog}
+        onOpenChange={(open) => dispatch({ type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: open })}
+    >
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Out of Free Optimizations</AlertDialogTitle>
+                <AlertDialogDescription>
+                    You've used all your free credits. Please upgrade to a paid plan to continue optimizing your job applications.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <Button variant="outline" onClick={() => dispatch({ type: 'SHOW_OUT_OF_CREDITS_DIALOG', payload: false })}>
+                    Cancel
+                </Button>
+                <AlertDialogAction asChild>
+                    <Link href="/pricing">View Pricing</Link>
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+);
+
+
   if (isUserLoading) {
     return (
         <div className="flex items-center justify-center h-screen">
@@ -820,7 +878,12 @@ export default function ResumePilotClient() {
           <h1 className="text-2xl font-bold font-headline text-foreground">ResumePilot</h1>
         </Link>
         {user && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-muted-foreground" />
+                    <span className="font-medium text-foreground">{state.profile.credits ?? 0}</span>
+                    <span className="text-muted-foreground">Credits</span>
+                </div>
                 <Button variant="outline" asChild>
                     <Link href="/pricing">Pricing</Link>
                 </Button>
@@ -838,6 +901,7 @@ export default function ResumePilotClient() {
       </header>
 
       <main className="flex-grow p-4 md:p-8">
+        <OutOfCreditsDialog />
         {!user ? (
             <LoginView onLogin={handleLogin} />
         ) : (

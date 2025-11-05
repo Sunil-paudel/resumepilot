@@ -52,6 +52,10 @@
           "type": "string",
           "description": "User's GitHub profile URL.",
           "format": "uri"
+        },
+        "credits": {
+          "type": "number",
+          "description": "The number of free optimizations the user has remaining."
         }
       },
       "required": [

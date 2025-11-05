@@ -10,6 +10,7 @@ export type UserProfile = {
     zipCode?: string;
     linkedinUrl?: string;
     githubUrl?: string;
+    credits?: number;
 };
 
 export type JobApplication = {
