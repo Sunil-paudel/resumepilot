@@ -20,6 +20,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Briefcase,
   FileText,
   Sparkles,
@@ -35,6 +40,7 @@ import {
   Save,
   HelpCircle,
   LogOut,
+  ChevronUp,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
@@ -62,6 +68,7 @@ type State = {
   loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'interview' | 'downloading' | 'profile' | false;
   copied: 'resume' | 'coverLetter' | 'followUp' | 'interview' | false;
   profile: Partial<UserProfile>;
+  isProfileOpen: boolean;
 };
 
 type Action =
@@ -79,6 +86,7 @@ type Action =
   | { type: 'DRAG_SKILL'; payload: { dragIndex: number; hoverIndex: number } }
   | { type: 'SET_PROFILE'; payload: Partial<UserProfile> }
   | { type: 'UPDATE_PROFILE_FIELD'; payload: { field: keyof UserProfile; value: string } }
+  | { type: 'TOGGLE_PROFILE' }
   | { type: 'RESET' };
 
 const initialState: State = {
@@ -94,6 +102,7 @@ const initialState: State = {
   loading: false,
   copied: false,
   profile: {},
+  isProfileOpen: true,
 };
 
 function reducer(state: State, action: Action): State {
@@ -130,10 +139,13 @@ function reducer(state: State, action: Action): State {
       return { ...state, profile: action.payload };
     case 'UPDATE_PROFILE_FIELD':
       return { ...state, profile: { ...state.profile, [action.payload.field]: action.payload.value } };
+    case 'TOGGLE_PROFILE':
+      return { ...state, isProfileOpen: !state.isProfileOpen };
     case 'RESET':
       return { 
         ...initialState, 
         profile: state.profile,
+        isProfileOpen: state.isProfileOpen,
         resumeText: state.resumeText, 
         jobDescriptionText: state.jobDescriptionText 
       };
@@ -305,11 +317,17 @@ export default function ResumePilotClient() {
     const profileRef = doc(firestore, 'users', user.uid);
     try {
       const dataToSave: UserProfile = {
-        ...state.profile,
         id: user.uid,
-        email: state.profile.email || user.email || '',
         firstName: state.profile.firstName || '',
         lastName: state.profile.lastName || '',
+        email: state.profile.email || user.email || '',
+        phone: state.profile.phone || '',
+        address: state.profile.address || '',
+        city: state.profile.city || '',
+        state: state.profile.state || '',
+        zipCode: state.profile.zipCode || '',
+        linkedinUrl: state.profile.linkedinUrl || '',
+        githubUrl: state.profile.githubUrl || '',
       };
       
       setDoc(profileRef, dataToSave, { merge: true }).catch(async (serverError) => {
@@ -625,51 +643,84 @@ export default function ResumePilotClient() {
 
   const renderProfileCard = () => {
     return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline flex items-center gap-2">
-            <UserIcon />
-            My Profile
-          </CardTitle>
-          <CardDescription>
-            This information will be used to populate your documents.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input id="firstName" value={state.profile.firstName || ''} onChange={(e) => handleProfileChange('firstName', e.target.value)} />
+      <Collapsible
+        open={state.isProfileOpen}
+        onOpenChange={() => dispatch({ type: 'TOGGLE_PROFILE' })}
+      >
+        <Card className="shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-1.5">
+              <CardTitle className="font-headline flex items-center gap-2">
+                <UserIcon />
+                My Profile
+              </CardTitle>
+              <CardDescription>
+                This information will be used to populate your documents.
+              </CardDescription>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input id="lastName" value={state.profile.lastName || ''} onChange={(e) => handleProfileChange('lastName', e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={state.profile.email || ''} onChange={(e) => handleProfileChange('email', e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" value={state.profile.phone || ''} onChange={(e) => handleProfileChange('phone', e.target.value)} />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
-              <Input id="linkedinUrl" value={state.profile.linkedinUrl || ''} onChange={(e) => handleProfileChange('linkedinUrl', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="githubUrl">GitHub URL</Label>
-              <Input id="githubUrl" value={state.profile.githubUrl || ''} onChange={(e) => handleProfileChange('githubUrl', e.target.value)} />
-            </div>
-          </div>
-          <Button onClick={handleSaveProfile} disabled={state.loading === 'profile'}>
-            {state.loading === 'profile' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Profile
-          </Button>
-        </CardContent>
-      </Card>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-9 p-0">
+                <ChevronUp className={`h-4 w-4 transition-transform ${!state.isProfileOpen && "rotate-180"}`} />
+                <span className="sr-only">Toggle</span>
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input id="firstName" value={state.profile.firstName || ''} onChange={(e) => handleProfileChange('firstName', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input id="lastName" value={state.profile.lastName || ''} onChange={(e) => handleProfileChange('lastName', e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={state.profile.email || ''} onChange={(e) => handleProfileChange('email', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" value={state.profile.phone || ''} onChange={(e) => handleProfileChange('phone', e.target.value)} />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input id="address" value={state.profile.address || ''} onChange={(e) => handleProfileChange('address', e.target.value)} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input id="city" value={state.profile.city || ''} onChange={(e) => handleProfileChange('city', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  <Input id="state" value={state.profile.state || ''} onChange={(e) => handleProfileChange('state', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="zipCode">Zip Code</Label>
+                  <Input id="zipCode" value={state.profile.zipCode || ''} onChange={(e) => handleProfileChange('zipCode', e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+                  <Input id="linkedinUrl" value={state.profile.linkedinUrl || ''} onChange={(e) => handleProfileChange('linkedinUrl', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="githubUrl">GitHub URL</Label>
+                  <Input id="githubUrl" value={state.profile.githubUrl || ''} onChange={(e) => handleProfileChange('githubUrl', e.target.value)} />
+                </div>
+              </div>
+              <Button onClick={handleSaveProfile} disabled={state.loading === 'profile'}>
+                {state.loading === 'profile' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Profile
+              </Button>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     );
   }
 
