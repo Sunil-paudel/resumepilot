@@ -56,18 +56,20 @@ import {
   LayoutDashboard,
   Eye,
   CreditCard,
+  Pencil,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
 import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
 import { Badge } from '../ui/badge';
-import { useUser, useFirestore, useAuth, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useAuth } from '@/firebase';
 import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore';
 import type { UserProfile, JobApplication } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { Switch } from '@/components/ui/switch';
 
 
 type State = {
@@ -265,7 +267,8 @@ export default function ResumePilotClient() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const auth = useAuth();
-  
+  const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview');
+
   const handleJobDescriptionChange = useCallback((value: string) => {
     dispatch({ type: 'SET_TEXT', payload: { field: 'jobDescriptionText', value }});
     if (value.length > 250) { // Only run if JD is reasonably long
@@ -714,12 +717,19 @@ export default function ResumePilotClient() {
               <ExternalLink className="w-4 h-4" />
             </Button>
           </div>
-            <Textarea
-                value={content}
-                onChange={(e) => handleContentChange(type, e.target.value)}
-                className="h-96 font-mono text-sm"
-                placeholder={`Edit your ${title.toLowerCase()}`}
-            />
+          {viewMode === 'edit' ? (
+              <Textarea
+                  value={content}
+                  onChange={(e) => handleContentChange(type, e.target.value)}
+                  className="h-[40rem] font-mono text-sm"
+                  placeholder={`Edit your ${title.toLowerCase()}`}
+              />
+          ) : (
+              <div 
+                  className="h-[40rem] overflow-y-auto rounded-md border bg-secondary/20 p-4 prose dark:prose-invert prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: content }}
+              />
+          )}
         </div>
       );
     }
@@ -1121,27 +1131,40 @@ export default function ResumePilotClient() {
                     </Card>
                 )}
 
-
-                <Tabs defaultValue="resume" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="resume"><Sparkles className="w-4 h-4 mr-2"/>Resume</TabsTrigger>
-                    <TabsTrigger value="coverLetter" disabled={!state.optimizedResume}><FileText className="w-4 h-4 mr-2"/>Cover Letter</TabsTrigger>
-                    <TabsTrigger value="interview" disabled={!state.coverLetter}><HelpCircle className="w-4 h-4 mr-2"/>Interview</TabsTrigger>
-                    <TabsTrigger value="followUp" disabled={!state.coverLetter}><Mail className="w-4 h-4 mr-2"/>Follow-Up</TabsTrigger>
-                </TabsList>
-                <TabsContent value="resume" className="mt-4">
-                    {renderContent('resume', state.optimizedResume, handleOptimizeResume, 'Optimize My Resume', 'Optimized Resume', Sparkles, state.analysisResult, 'optimized-resume')}
-                </TabsContent>
-                <TabsContent value="coverLetter" className="mt-4">
-                    {renderContent('coverLetter', state.coverLetter, handleGenerateCoverLetter, 'Generate Cover Letter', 'Cover Letter', FileText, state.optimizedResume, 'cover-letter')}
-                </TabsContent>
-                <TabsContent value="interview" className="mt-4">
-                    {renderContent('interview', state.interviewQuestions, handleGenerateInterviewQuestions, 'Generate Interview Questions', 'Interview Prep', HelpCircle, state.coverLetter, 'interview-prep')}
-                </TabsContent>
-                <TabsContent value="followUp" className="mt-4">
-                    {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter, 'follow-up-email')}
-                </TabsContent>
-                </Tabs>
+                {state.analysisResult && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-end space-x-2">
+                        <Label htmlFor="view-mode" className="text-sm font-medium">
+                            {viewMode === 'preview' ? 'Preview Mode' : 'Edit Mode'}
+                        </Label>
+                        <Switch
+                            id="view-mode"
+                            checked={viewMode === 'edit'}
+                            onCheckedChange={(checked) => setViewMode(checked ? 'edit' : 'preview')}
+                        />
+                    </div>
+                    <Tabs defaultValue="resume" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="resume"><Sparkles className="w-4 h-4 mr-2"/>Resume</TabsTrigger>
+                        <TabsTrigger value="coverLetter" disabled={!state.optimizedResume}><FileText className="w-4 h-4 mr-2"/>Cover Letter</TabsTrigger>
+                        <TabsTrigger value="interview" disabled={!state.coverLetter}><HelpCircle className="w-4 h-4 mr-2"/>Interview</TabsTrigger>
+                        <TabsTrigger value="followUp" disabled={!state.coverLetter}><Mail className="w-4 h-4 mr-2"/>Follow-Up</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="resume" className="mt-4">
+                        {renderContent('resume', state.optimizedResume, handleOptimizeResume, 'Optimize My Resume', 'Optimized Resume', Sparkles, state.analysisResult, 'optimized-resume')}
+                    </TabsContent>
+                    <TabsContent value="coverLetter" className="mt-4">
+                        {renderContent('coverLetter', state.coverLetter, handleGenerateCoverLetter, 'Generate Cover Letter', 'Cover Letter', FileText, state.optimizedResume, 'cover-letter')}
+                    </TabsContent>
+                    <TabsContent value="interview" className="mt-4">
+                        {renderContent('interview', state.interviewQuestions, handleGenerateInterviewQuestions, 'Generate Interview Questions', 'Interview Prep', HelpCircle, state.coverLetter, 'interview-prep')}
+                    </TabsContent>
+                    <TabsContent value="followUp" className="mt-4">
+                        {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter, 'follow-up-email')}
+                    </TabsContent>
+                    </Tabs>
+                  </div>
+                )}
                 {state.coverLetter && !state.applicationId && (
                     <Card className="shadow-lg">
                         <CardHeader>
@@ -1179,3 +1202,5 @@ export default function ResumePilotClient() {
     </div>
   );
 }
+
+    
