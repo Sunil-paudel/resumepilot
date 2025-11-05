@@ -604,7 +604,7 @@ export default function ResumePilotClient() {
         userId: user.uid,
         jobTitle: state.jobTitle,
         companyName: state.companyName,
-        applicationDate: serverTimestamp().toDate().toISOString(),
+        applicationDate: new Date().toISOString(),
         status: 'Applied',
         resumeText: state.resumeText,
         jobDescriptionText: state.jobDescriptionText,
