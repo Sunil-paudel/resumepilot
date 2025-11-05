@@ -34,17 +34,19 @@ import {
   User as UserIcon,
   Save,
   HelpCircle,
+  LogOut,
 } from 'lucide-react';
 import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
 import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
 import { Badge } from '../ui/badge';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, useAuth } from '@/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 
 
 type State = {
@@ -197,12 +199,29 @@ const DraggableSkill = ({ skill, index, moveSkill, onRemove }: { skill: string, 
   );
 };
 
+const LoginView = ({ onLogin }: { onLogin: () => void }) => (
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] gap-6 text-center">
+        <Logo className="w-24 h-24 text-primary" />
+        <div className="space-y-2">
+            <h1 className="text-4xl font-bold font-headline">Welcome to ResumePilot</h1>
+            <p className="text-lg text-muted-foreground">
+                Sign in to optimize your resume, generate cover letters, and track your job applications.
+            </p>
+        </div>
+        <Button size="lg" onClick={onLogin}>
+          <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.3 64.5c-24.5-23.4-58.3-38.2-96.6-38.2-83.3 0-151.5 68.2-151.5 151.5s68.2 151.5 151.5 151.5c97.1 0 134.3-71.2 137.5-108.3H248v-85.3h236.1c2.3 12.7 3.9 26.9 3.9 41.4z"></path></svg>
+          Sign in with Google
+        </Button>
+    </div>
+);
+
 export default function ResumePilotClient() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { toast } = useToast();
   const resultsRef = useRef<HTMLDivElement>(null);
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const auth = useAuth();
 
   useEffect(() => {
     if (user && firestore) {
@@ -217,8 +236,12 @@ export default function ResumePilotClient() {
               dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'email', value: data.email } });
             }
           } else {
-            // Pre-fill email from auth if profile doesn't exist
+            // Pre-fill email and name from auth if profile doesn't exist
             if(user.email) dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'email', value: user.email } });
+            const nameParts = user.displayName?.split(' ') || [];
+            if(nameParts[0]) dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'firstName', value: nameParts[0] } });
+            if(nameParts[1]) dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'lastName', value: nameParts.slice(1).join(' ') } });
+            
           }
         } catch (error) {
           console.error("Error fetching user profile:", error);
@@ -227,6 +250,36 @@ export default function ResumePilotClient() {
       fetchProfile();
     }
   }, [user, firestore]);
+
+  const handleLogin = async () => {
+    if (!auth) return;
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error during sign-in:", error);
+      toast({
+        variant: "destructive",
+        title: "Sign in failed",
+        description: "Could not sign in with Google. Please try again.",
+      });
+    }
+  };
+
+  const handleLogout = async () => {
+    if (!auth) return;
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast({
+        variant: "destructive",
+        title: "Sign out failed",
+        description: "Could not sign out. Please try again.",
+      });
+    }
+  };
+
 
   const handleProfileChange = (field: keyof UserProfile, value: string) => {
     dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field, value } });
@@ -564,30 +617,6 @@ export default function ResumePilotClient() {
   }
 
   const renderProfileCard = () => {
-    if (isUserLoading) {
-      return (
-        <Card className="shadow-lg">
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-48" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
-      );
-    }
-    
-    if (!user) {
-      return null; // Don't show profile card if not logged in
-    }
-
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -637,6 +666,14 @@ export default function ResumePilotClient() {
     );
   }
 
+  if (isUserLoading) {
+    return (
+        <div className="flex items-center justify-center h-screen">
+            <Loader2 className="w-16 h-16 animate-spin text-primary" />
+        </div>
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 md:px-8 py-4 flex items-center justify-between gap-3 border-b">
@@ -644,147 +681,158 @@ export default function ResumePilotClient() {
           <Logo className="w-8 h-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline text-foreground">ResumePilot</h1>
         </div>
-        {/* Placeholder for future login/logout button */}
+        {user && (
+            <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground hidden sm:inline">Welcome, {user.displayName || user.email}</span>
+                <Button variant="ghost" size="icon" onClick={handleLogout} title="Sign Out">
+                    <LogOut className="w-5 h-5" />
+                </Button>
+            </div>
+        )}
       </header>
 
       <main className="flex-grow p-4 md:p-8">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
-          {/* LEFT COLUMN */}
-          <div className="flex flex-col gap-8">
-            {renderProfileCard()}
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                  <FileText />
-                  Your Resume
-                </CardTitle>
-                <CardDescription>
-                  Paste the full text of your resume below.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Label htmlFor="resume-text" className="sr-only">Resume Text</Label>
-                <Textarea
-                  id="resume-text"
-                  placeholder="Paste your resume here..."
-                  value={state.resumeText}
-                  onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'resumeText', value: e.target.value }})}
-                  className="h-48"
-                />
-              </CardContent>
-            </Card>
+        {!user ? (
+            <LoginView onLogin={handleLogin} />
+        ) : (
+            <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+            {/* LEFT COLUMN */}
+            <div className="flex flex-col gap-8">
+                {renderProfileCard()}
+                <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2">
+                    <FileText />
+                    Your Resume
+                    </CardTitle>
+                    <CardDescription>
+                    Paste the full text of your resume below.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Label htmlFor="resume-text" className="sr-only">Resume Text</Label>
+                    <Textarea
+                    id="resume-text"
+                    placeholder="Paste your resume here..."
+                    value={state.resumeText}
+                    onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'resumeText', value: e.target.value }})}
+                    className="h-48"
+                    />
+                </CardContent>
+                </Card>
 
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                  <Briefcase />
-                  The Job Description
-                </CardTitle>
-                <CardDescription>
-                  Paste the job description you're applying for.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Label htmlFor="jd-text" className="sr-only">Job Description Text</Label>
-                <Textarea
-                  id="jd-text"
-                  placeholder="Paste job description here..."
-                  value={state.jobDescriptionText}
-                  onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'jobDescriptionText', value: e.target.value }})}
-                  className="h-48"
-                />
-              </CardContent>
-            </Card>
-            
-            <Button size="lg" onClick={handleAnalyze} disabled={isAnalyzeDisabled}>
-              {state.loading === 'analysis' ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-              Analyze & Generate
-            </Button>
-          </div>
+                <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2">
+                    <Briefcase />
+                    The Job Description
+                    </CardTitle>
+                    <CardDescription>
+                    Paste the job description you're applying for.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Label htmlFor="jd-text" className="sr-only">Job Description Text</Label>
+                    <Textarea
+                    id="jd-text"
+                    placeholder="Paste job description here..."
+                    value={state.jobDescriptionText}
+                    onChange={(e) => dispatch({ type: 'SET_TEXT', payload: { field: 'jobDescriptionText', value: e.target.value }})}
+                    className="h-48"
+                    />
+                </CardContent>
+                </Card>
+                
+                <Button size="lg" onClick={handleAnalyze} disabled={isAnalyzeDisabled}>
+                {state.loading === 'analysis' ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
+                Analyze & Generate
+                </Button>
+            </div>
 
-          {/* RIGHT COLUMN */}
-          <div ref={resultsRef} className="flex flex-col gap-8">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="font-headline">Analysis & Optimization</CardTitle>
-                <CardDescription>Your resume's compatibility score and optimization results.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {state.loading === 'analysis' && (
-                  <div className="flex justify-center items-center h-48 gap-4">
-                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                    <p className="text-muted-foreground">Analyzing...</p>
-                  </div>
-                )}
-                {!state.loading && !state.analysisResult && (
-                  <div className="flex justify-center items-center h-48 text-center text-muted-foreground">
-                    <p>Your analysis results will appear here after you submit your documents.</p>
-                  </div>
-                )}
-                {state.analysisResult && (
-                    <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                    <div className="flex flex-col items-center gap-2">
-                        <ScoreGauge value={state.analysisResult.compatibilityScore} />
-                        <p className="font-semibold">Initial Match Score</p>
+            {/* RIGHT COLUMN */}
+            <div ref={resultsRef} className="flex flex-col gap-8">
+                <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle className="font-headline">Analysis & Optimization</CardTitle>
+                    <CardDescription>Your resume's compatibility score and optimization results.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {state.loading === 'analysis' && (
+                    <div className="flex justify-center items-center h-48 gap-4">
+                        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                        <p className="text-muted-foreground">Analyzing...</p>
                     </div>
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="flex flex-col items-center">
-                          {state.optimizedAnalysisResult ? (
-                            <>
-                              <ScoreGauge value={state.optimizedAnalysisResult.compatibilityScore} />
-                              <p className="font-semibold">Optimized Score</p>
-                            </>
-                          ) : state.loading === 'optimizing' ? (
-                            <div className="flex flex-col items-center gap-2">
-                              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                              <p className="text-sm text-muted-foreground">Recalculating...</p>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-2 text-center">
-                              <div className="w-24 h-24 border-2 border-dashed rounded-full flex items-center justify-center">
-                                <Sparkles className="w-8 h-8 text-muted-foreground" />
-                              </div>
-                              <p className="font-semibold text-muted-foreground">Optimized Score</p>
-                            </div>
-                          )}
+                    )}
+                    {!state.loading && !state.analysisResult && (
+                    <div className="flex justify-center items-center h-48 text-center text-muted-foreground">
+                        <p>Your analysis results will appear here after you submit your documents.</p>
+                    </div>
+                    )}
+                    {state.analysisResult && (
+                        <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div className="flex flex-col items-center gap-2">
+                            <ScoreGauge value={state.analysisResult.compatibilityScore} />
+                            <p className="font-semibold">Initial Match Score</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-sm text-muted-foreground">Is this job right for you?</p>
-                          <p className={`text-2xl font-bold font-headline ${state.analysisResult.isRightForMe ? 'text-accent-foreground' : 'text-destructive'}`}>
-                            {state.analysisResult.isRightForMe ? 'Looks Promising!' : 'Might Not Be a Fit'}
-                          </p>
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="flex flex-col items-center">
+                            {state.optimizedAnalysisResult ? (
+                                <>
+                                <ScoreGauge value={state.optimizedAnalysisResult.compatibilityScore} />
+                                <p className="font-semibold">Optimized Score</p>
+                                </>
+                            ) : state.loading === 'optimizing' ? (
+                                <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                <p className="text-sm text-muted-foreground">Recalculating...</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 text-center">
+                                <div className="w-24 h-24 border-2 border-dashed rounded-full flex items-center justify-center">
+                                    <Sparkles className="w-8 h-8 text-muted-foreground" />
+                                </div>
+                                <p className="font-semibold text-muted-foreground">Optimized Score</p>
+                                </div>
+                            )}
+                            </div>
+                            <div className="text-center">
+                            <p className="text-sm text-muted-foreground">Is this job right for you?</p>
+                            <p className={`text-2xl font-bold font-headline ${state.analysisResult.isRightForMe ? 'text-accent-foreground' : 'text-destructive'}`}>
+                                {state.analysisResult.isRightForMe ? 'Looks Promising!' : 'Might Not Be a Fit'}
+                            </p>
+                            </div>
                         </div>
                     </div>
-                  </div>
-                  <KeywordAnalysis />
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                    <KeywordAnalysis />
+                    </>
+                    )}
+                </CardContent>
+                </Card>
 
-            <Tabs defaultValue="resume" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="resume"><Sparkles className="w-4 h-4 mr-2"/>Resume</TabsTrigger>
-                <TabsTrigger value="coverLetter" disabled={!state.optimizedResume}><FileText className="w-4 h-4 mr-2"/>Cover Letter</TabsTrigger>
-                <TabsTrigger value="interview" disabled={!state.coverLetter}><HelpCircle className="w-4 h-4 mr-2"/>Interview</TabsTrigger>
-                <TabsTrigger value="followUp" disabled={!state.coverLetter}><Mail className="w-4 h-4 mr-2"/>Follow-Up</TabsTrigger>
-              </TabsList>
-              <TabsContent value="resume" className="mt-4">
-                {renderContent('resume', state.optimizedResume, handleOptimizeResume, 'Optimize My Resume', 'Optimized Resume', Sparkles, state.analysisResult, 'optimized-resume')}
-              </TabsContent>
-              <TabsContent value="coverLetter" className="mt-4">
-                {renderContent('coverLetter', state.coverLetter, handleGenerateCoverLetter, 'Generate Cover Letter', 'Cover Letter', FileText, state.optimizedResume, 'cover-letter')}
-              </TabsContent>
-              <TabsContent value="interview" className="mt-4">
-                {renderContent('interview', state.interviewQuestions, handleGenerateInterviewQuestions, 'Generate Interview Questions', 'Interview Prep', HelpCircle, state.coverLetter, 'interview-prep')}
-              </TabsContent>
-              <TabsContent value="followUp" className="mt-4">
-                {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter, 'follow-up-email')}
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+                <Tabs defaultValue="resume" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="resume"><Sparkles className="w-4 h-4 mr-2"/>Resume</TabsTrigger>
+                    <TabsTrigger value="coverLetter" disabled={!state.optimizedResume}><FileText className="w-4 h-4 mr-2"/>Cover Letter</TabsTrigger>
+                    <TabsTrigger value="interview" disabled={!state.coverLetter}><HelpCircle className="w-4 h-4 mr-2"/>Interview</TabsTrigger>
+                    <TabsTrigger value="followUp" disabled={!state.coverLetter}><Mail className="w-4 h-4 mr-2"/>Follow-Up</TabsTrigger>
+                </TabsList>
+                <TabsContent value="resume" className="mt-4">
+                    {renderContent('resume', state.optimizedResume, handleOptimizeResume, 'Optimize My Resume', 'Optimized Resume', Sparkles, state.analysisResult, 'optimized-resume')}
+                </TabsContent>
+                <TabsContent value="coverLetter" className="mt-4">
+                    {renderContent('coverLetter', state.coverLetter, handleGenerateCoverLetter, 'Generate Cover Letter', 'Cover Letter', FileText, state.optimizedResume, 'cover-letter')}
+                </TabsContent>
+                <TabsContent value="interview" className="mt-4">
+                    {renderContent('interview', state.interviewQuestions, handleGenerateInterviewQuestions, 'Generate Interview Questions', 'Interview Prep', HelpCircle, state.coverLetter, 'interview-prep')}
+                </TabsContent>
+                <TabsContent value="followUp" className="mt-4">
+                    {renderContent('followUp', state.followUpEmail, handleGenerateFollowUp, 'Generate Follow-Up Email', 'Follow-Up Email', Mail, state.coverLetter, 'follow-up-email')}
+                </TabsContent>
+                </Tabs>
+            </div>
+            </div>
+        )}
       </main>
     </div>
   );
