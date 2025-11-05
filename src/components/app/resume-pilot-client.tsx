@@ -6,6 +6,7 @@ import {
   runResumeOptimization,
   runCoverLetterGeneration,
   runFollowUpEmailGeneration,
+  generateDocx,
 } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -30,7 +31,6 @@ import { ScoreGauge } from '@/components/app/score-gauge';
 import { Logo } from '@/components/app/icons';
 import { Skeleton } from '../ui/skeleton';
 import { saveAs } from 'file-saver';
-import htmlToDocx from 'html-to-docx';
 
 type State = {
   resumeText: string;
@@ -40,7 +40,7 @@ type State = {
   optimizedResume: string | null;
   coverLetter: string | null;
   followUpEmail: string | null;
-  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | false;
+  loading: 'analysis' | 'optimizing' | 'coverLetter' | 'followUp' | 'downloading' | false;
   copied: 'resume' | 'coverLetter' | 'followUp' | false;
 };
 
@@ -96,6 +96,26 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+// Helper function to convert base64 to a Blob
+function base64ToBlob(base64: string, contentType: string = ''): Blob {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+  
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+  
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+  
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+  
+    return new Blob(byteArrays, { type: contentType });
+  }
+
 export default function ResumePilotClient() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { toast } = useToast();
@@ -103,24 +123,37 @@ export default function ResumePilotClient() {
 
   const handleCopy = (text: string | null, type: State['copied']) => {
     if (!text || !type) return;
-    navigator.clipboard.writeText(text);
+    // We need to strip HTML for the copy
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = text;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+    navigator.clipboard.writeText(plainText);
+
     dispatch({ type: 'SET_COPIED', payload: type });
     setTimeout(() => dispatch({ type: 'SET_COPIED', payload: false }), 2000);
   };
   
   const handleDownload = async (content: string | null, fileName: string) => {
     if (!content) return;
+    dispatch({ type: 'SET_LOADING', payload: 'downloading' });
     try {
-      const fileBuffer = await htmlToDocx(content);
-      saveAs(fileBuffer as Blob, `${fileName}.docx`);
-    } catch(e) {
+        const result = await generateDocx(content);
+        if (result.error || !result.data) {
+            throw new Error(result.error || 'Failed to get document from server.');
+        }
+
+        const blob = base64ToBlob(result.data, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        saveAs(blob, `${fileName}.docx`);
+
+    } catch(e: any) {
       console.error(e);
       toast({
         variant: 'destructive',
         title: 'Download Failed',
-        description: 'Could not generate document for download.',
+        description: e.message || 'Could not generate document for download.',
       });
     }
+    dispatch({ type: 'SET_LOADING', payload: false });
   };
 
   const handleAnalyze = async () => {
@@ -251,8 +284,9 @@ export default function ResumePilotClient() {
               className="h-8 w-8"
               onClick={() => handleDownload(content, fileName)}
               title="Download as .docx"
+              disabled={state.loading === 'downloading'}
             >
-              <Download className="w-4 h-4" />
+              {state.loading === 'downloading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             </Button>
           </div>
           <div 
