@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { AppFooter } from '@/components/app/footer';
 
 export default function HomePage() {
   const features = [
@@ -142,11 +143,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t py-6 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} ResumePilot. All rights reserved.</p>
-        </div>
-      </footer>
+      <AppFooter />
     </div>
   );
 }
