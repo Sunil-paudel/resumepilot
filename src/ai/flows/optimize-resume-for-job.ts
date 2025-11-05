@@ -27,6 +27,10 @@ const OptimizeResumeForJobInputSchema = z.object({
     lastName: z.string().optional(),
     email: z.string().optional(),
     phone: z.string().optional(),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zipCode: z.string().optional(),
     linkedinUrl: z.string().optional(),
     githubUrl: z.string().optional(),
   }).optional().describe('User\'s profile information to be included in the resume header.'),
@@ -65,6 +69,7 @@ const optimizeResumeForJobPrompt = ai.definePrompt({
   Start the resume with a header containing the user's contact information. Format it professionally.
   - At the top, include the user's full name in an <h1> tag: {{profile.firstName}} {{profile.lastName}}
   - Below the name, create a paragraph (<p>) containing the following, separated by a character like ' | ':
+    - If city and state are available, display them as '{{profile.city}}, {{profile.state}}'.
     - Phone number: {{profile.phone}}
     - Email address: {{profile.email}}
   {{#if profile.linkedinUrl}}

@@ -309,7 +309,14 @@ export default function ResumePilotClient() {
                 email: user.email || '',
                 credits: isDeveloper ? 9999 : 2, // Infinite for devs, 2 for others
             };
-            await setDoc(profileRef, newUserProfile);
+            setDoc(profileRef, newUserProfile).catch(async (serverError) => {
+              const permissionError = new FirestorePermissionError({
+                path: profileRef.path,
+                operation: 'create',
+                requestResourceData: newUserProfile,
+              });
+              errorEmitter.emit('permission-error', permissionError);
+            });
             dispatch({ type: 'SET_PROFILE', payload: newUserProfile });
           }
         } catch (error) {
@@ -476,7 +483,14 @@ export default function ResumePilotClient() {
       const newCredits = currentCredits - 1;
       const profileRef = doc(firestore, 'users', user.uid);
       try {
-          await updateDoc(profileRef, { credits: newCredits });
+          updateDoc(profileRef, { credits: newCredits }).catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: profileRef.path,
+                operation: 'update',
+                requestResourceData: { credits: newCredits },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          });
           dispatch({ type: 'UPDATE_PROFILE_FIELD', payload: { field: 'credits', value: newCredits }});
       } catch (error) {
           console.error("Failed to update credits:", error);
@@ -605,6 +619,13 @@ export default function ResumePilotClient() {
             description: 'Your application has been saved to your dashboard.',
         });
     } catch (e: any) {
+        const permissionError = new FirestorePermissionError({
+            path: `users/${user.uid}/applications`,
+            operation: 'create',
+            requestResourceData: applicationData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+
         toast({
             variant: 'destructive',
             title: 'Save Failed',
