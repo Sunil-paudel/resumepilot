@@ -5,7 +5,6 @@ import { generateCoverLetter, GenerateCoverLetterInput } from '@/ai/flows/genera
 import { generateFollowUpEmail, GenerateFollowUpEmailInput } from '@/ai/flows/generate-follow-up-email';
 import { optimizeResumeForJob, OptimizeResumeForJobInput } from '@/ai/flows/optimize-resume-for-job';
 import { generateInterviewQuestions, GenerateInterviewQuestionsInput } from '@/ai/flows/generate-interview-questions';
-import htmlToDocx from 'html-to-docx';
 
 export async function runJobSuitabilityAnalysis(input: AnalyzeJobSuitabilityInput) {
   try {
@@ -59,6 +58,7 @@ export async function runInterviewQuestionsGeneration(input: GenerateInterviewQu
 
 export async function generateDocx(htmlContent: string) {
     try {
+      const htmlToDocx = (await import('html-to-docx')).default;
       const fileBuffer = await htmlToDocx(htmlContent);
       // html-to-docx returns a Buffer on the server
       return { data: (fileBuffer as Buffer).toString('base64') };
