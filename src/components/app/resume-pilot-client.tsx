@@ -588,7 +588,7 @@ export default function ResumePilotClient() {
     dispatch({ type: 'SET_LOADING', payload: false });
   }
 
-  const handleSaveApplication = async () => {
+  const handleSaveApplication = () => {
     if (!user || !firestore) {
         toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to save.' });
         return;
@@ -614,15 +614,14 @@ export default function ResumePilotClient() {
         followUpEmailHtml: state.followUpEmail || '',
     };
 
-    try {
-        const applicationsRef = collection(firestore, 'users', user.uid, 'applications');
-        const docRef = await addDoc(applicationsRef, applicationData);
+    const applicationsRef = collection(firestore, 'users', user.uid, 'applications');
+    addDoc(applicationsRef, applicationData).then(docRef => {
         dispatch({ type: 'SET_APPLICATION_ID', payload: docRef.id });
         toast({
             title: 'Application Saved!',
             description: 'Your application has been saved to your dashboard.',
         });
-    } catch (e: any) {
+    }).catch(e => {
         const permissionError = new FirestorePermissionError({
             path: `users/${user.uid}/applications`,
             operation: 'create',
@@ -635,9 +634,9 @@ export default function ResumePilotClient() {
             title: 'Save Failed',
             description: e.message || 'Could not save application.',
         });
-    }
-
-    dispatch({ type: 'SET_LOADING', payload: false });
+    }).finally(() => {
+        dispatch({ type: 'SET_LOADING', payload: false });
+    });
   };
 
 
@@ -1202,3 +1201,5 @@ export default function ResumePilotClient() {
     </div>
   );
 }
+
+    
