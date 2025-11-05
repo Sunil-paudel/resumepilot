@@ -407,35 +407,15 @@ export default function ResumePilotClient() {
   ) => {
     const loadingType = type === 'resume' ? 'optimizing' : type;
 
-    if (state.loading === 'analysis') return <Skeleton className="w-full h-64" />;
-    
-    if (type === 'resume' && state.analysisResult && !state.optimizedResume && state.loading !== 'optimizing') {
-        return (
-            <div className="flex flex-col items-center justify-center h-full gap-4 bg-secondary rounded-lg p-4">
-                <KeywordAnalysis />
-                <Button onClick={handleGenerate} disabled={state.loading === 'optimizing'}>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    {generateButtonText}
-                </Button>
-            </div>
-        )
-    }
-
     if (state.loading === loadingType) {
-      return <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
-        <p className="text-muted-foreground">Generating your {title.toLowerCase()}...</p>
-      </div>;
+      return (
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">Generating your {title.toLowerCase()}...</p>
+        </div>
+      );
     }
     
-    if (!dependency && type !== 'resume') {
-        return (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <p>Complete previous steps to generate {title.toLowerCase()}.</p>
-          </div>
-        );
-      }
-
     if (content) {
       return (
         <div className="relative">
@@ -476,21 +456,21 @@ export default function ResumePilotClient() {
         </div>
       );
     }
-    
-    if (type === 'resume' && !state.analysisResult) {
-        return (
-            <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
-                <Icon className="w-12 h-12 text-muted-foreground" />
-                <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
-            </div>
-        )
-    }
 
+    if (!dependency) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
+          <Icon className="w-12 h-12 text-muted-foreground" />
+          <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
+        </div>
+      );
+    }
+    
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 bg-secondary rounded-lg">
         <Icon className="w-12 h-12 text-muted-foreground" />
         <p className="text-center text-muted-foreground">Your {title.toLowerCase()} will appear here.</p>
-        <Button onClick={handleGenerate}>
+        <Button onClick={handleGenerate} disabled={!!state.loading}>
           <Sparkles className="w-4 h-4 mr-2" />
           {generateButtonText}
         </Button>
@@ -518,9 +498,11 @@ export default function ResumePilotClient() {
     const removeSkill = (skill: string) => {
       dispatch({ type: 'REMOVE_SKILL', payload: skill });
     };
+    
+    if (!state.analysisResult) return null;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-6">
             <div>
                 <h4 className="font-semibold mb-2">Keywords Analysis</h4>
                 <div className="space-y-2">
@@ -721,6 +703,7 @@ export default function ResumePilotClient() {
                   </div>
                 )}
                 {state.analysisResult && (
+                    <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                     <div className="flex flex-col items-center gap-2">
                         <ScoreGauge value={state.analysisResult.compatibilityScore} />
@@ -755,6 +738,8 @@ export default function ResumePilotClient() {
                         </div>
                     </div>
                   </div>
+                  <KeywordAnalysis />
+                  </>
                 )}
               </CardContent>
             </Card>
